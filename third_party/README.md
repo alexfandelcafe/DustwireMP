@@ -1,10 +1,19 @@
 # Third-party dependencies
 
-The v0.1 source tree intentionally has no bundled CEF or ENet SDK.
+## ENet
 
-Next milestone:
+DustwireMP uses the upstream ENet reliable-UDP library:
 
-- Add CEF SDK here for the in-process/injected browser UI.
-- Add ENet here (or as a package/CMake dependency) and implement `ITransport` with an `EnetTransport`.
+https://github.com/lsalzman/enet
 
-Keep third-party sources separate from project code.
+The build fetches a pinned upstream commit:
+
+`5a9c537fd464b3c6d3c55e1d3bd47588faf71b42`
+
+ENet is linked only by `dustwire_shared`. Gameplay, UI, and the DustwireMP packet protocol do not call ENet APIs directly.
+
+The upstream project is MIT licensed. See the upstream repository for its license text.
+
+## CEF
+
+CEF is not bundled yet. The repository currently contains the native browser bridge and a UI mock. The real CEF SDK will be introduced during the RDR1 client integration milestone, keeping CEF binaries outside the gameplay/network protocol code.
