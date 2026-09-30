@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.22)
+cmake_minimum_required(VERSION 4.2)
 project(DustwireMP VERSION 0.2.0 LANGUAGES C CXX)
 
 set(CMAKE_C_STANDARD 99)
