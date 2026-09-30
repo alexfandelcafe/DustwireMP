@@ -23,7 +23,9 @@ Implemented now:
 - ENet disconnect detection.
 - Client ping measurement through PING/PONG.
 - Protocol smoke test.
+- Real ENet client/server loopback test.
 - CMake FetchContent dependency pinned to a known upstream ENet commit.
+- Visual Studio 18 2026 x64 build script.
 - Persistent roadmap in `ROADMAP.md`.
 
 ## Protocol
@@ -52,19 +54,23 @@ These are new DustwireMP protocol definitions. They are not claimed to reproduce
 
 ## Build
 
-Windows target:
+The local builder targets **Visual Studio 18 2026, x64**:
 
 ```bat
 build.bat
 ```
 
+CMake's `Visual Studio 18 2026` generator is available starting with CMake 4.2, so this project requires CMake 4.2 or newer. citeturn231063search0turn231063search5
+
+The builder uses the isolated directory `build-vs2026/` so an old VS 17/2022 CMake cache cannot conflict with the VS 18 generator.
+
 The build script:
 
-1. Creates `build/` and `logs/`.
-2. Configures Visual Studio 2022 x64.
+1. Creates `build-vs2026/` and `logs/`.
+2. Configures Visual Studio 18 2026 x64.
 3. Lets CMake fetch the pinned ENet dependency.
 4. Builds Debug.
-5. Runs the protocol smoke test.
+5. Runs all CTest tests.
 6. Stores stdout/stderr in a timestamped log.
 
 The first configuration requires network access to fetch ENet unless the CMake dependency has already been cached locally.
@@ -87,6 +93,6 @@ The v0.2 client is still a console executable. The CEF bridge and web UI are pre
 
 ## Development route
 
-Read `ROADMAP.md` before changing architecture. Each milestone isolates one layer so we can test networking before touching RDR1 memory hooks.
+Read `ROADMAP.md` and `ARCHITECTURE.md` before changing architecture. Each milestone isolates one layer so we can test networking before touching RDR1 memory hooks.
 
 Next major milestone: v0.3 RDR1 launcher/injection and a stable game tick, followed by v0.4 two-player replication.
