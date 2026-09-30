@@ -11,9 +11,19 @@ struct LauncherConfig {
     std::filesystem::path client_dll{
         "DustwireMPClientModule.dll"
     };
+
     std::wstring target_process{L"RDR.exe"};
+
     std::uint32_t wait_for_game_ms{30000};
+
     bool require_x64{true};
+
+    // Zero means "report only". Non-zero values enable
+    // an exact build-profile check.
+    std::uint32_t expected_timestamp{0};
+    std::uint32_t expected_image_size{0};
+    std::uint64_t expected_file_size{0};
+    std::uint16_t expected_machine{0};
 };
 
 class LauncherConfigReader {
