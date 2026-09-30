@@ -187,11 +187,11 @@ bool Sha256File(
 std::string FileVersion(
     const std::wstring& path) {
 
-    const DWORD handle = 0;
+    DWORD handle = 0;
     const DWORD size =
         GetFileVersionInfoSizeW(
             path.c_str(),
-            const_cast<DWORD*>(&handle));
+            &handle);
 
     if (size == 0) {
         return {};
