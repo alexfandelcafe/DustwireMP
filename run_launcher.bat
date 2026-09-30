@@ -22,7 +22,6 @@ if "%~1"=="" (
   echo Usage:
   echo   run_launcher.bat "C:\path\to\RDR.exe"
   echo.
-  echo You can also set DUSTWIRE_RDR1_PATH or game_path in config\launcher.ini.
   echo.
   "%EXE%"
 ) else (
