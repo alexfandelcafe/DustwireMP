@@ -55,7 +55,9 @@ build-vs2026/bin/Debug/
   config/launcher.ini
 ~~~
 
-Use `run_launcher.bat` for the RDR1 bootstrap.
+Use `run_build_probe.bat "C:\\path\\to\\RDR.exe"` to inspect an RDR1 executable without launching or injecting anything.
+
+Use `run_launcher.bat` for the RDR1 bootstrap. Its launcher log is written to `logs/launcher.log` when run from the repository root.
 
 Use `run_server.bat` and `run_client.bat` for the standalone networking test pair.
 
@@ -144,3 +146,19 @@ These are new DustwireMP protocol definitions. They are not claimed to reproduce
 Read `ROADMAP.md`, `ARCHITECTURE.md`, and `docs/V0.3_BOOTSTRAP.md` before modifying the client bootstrap.
 
 Next: identify and document the exact supported RDR1 executable build, then implement a verified engine tick source and local actor discovery through `GameBridge`.
+
+## Historical RDR1 build reference
+
+The previous FrontierMP development repository contains an observed RDR.exe fingerprint:
+
+~~~text
+file_version=1.0.42.46611
+pe_timestamp=0x673783F3
+image_size=0x5A5EC600
+text_rva=0x1000
+text_size=0x104A140
+text_fnv1a64=0xB213CBF3DEE9B6BF
+machine=AMD64
+~~~
+
+Treat this as a candidate profile until the current executable is checked with `run_build_probe.bat`.
