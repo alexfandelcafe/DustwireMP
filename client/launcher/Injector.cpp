@@ -1,9 +1,9 @@
 #include "Injector.hpp"
 
 #include <windows.h>
+#include <tlhelp32.h>
 
 #include <sstream>
-#include <string>
 
 namespace dustwire::launcher {
 
@@ -17,7 +17,49 @@ std::string Win32Error(
     stream << operation
            << " failed with Win32 error "
            << code;
+
     return stream.str();
+}
+
+bool IsModuleLoaded(
+    std::uint32_t process_id,
+    const std::wstring& dll_path) {
+
+    HANDLE snapshot =
+        CreateToolhelp32Snapshot(
+            TH32CS_SNAPMODULE |
+            TH32CS_SNAPMODULE32,
+            process_id);
+
+    if (snapshot == INVALID_HANDLE_VALUE) {
+        return false;
+    }
+
+    MODULEENTRY32W module{};
+    module.dwSize = sizeof(module);
+
+    bool found = false;
+
+    if (Module32FirstW(
+            snapshot,
+            &module)) {
+
+        do {
+            if (_wcsicmp(
+                    module.szExePath,
+                    dll_path.c_str()) == 0) {
+
+                found = true;
+                break;
+            }
+
+        } while (Module32NextW(
+            snapshot,
+            &module));
+    }
+
+    CloseHandle(snapshot);
+    return found;
 }
 
 class HandleGuard {
@@ -36,14 +78,8 @@ public:
         return handle_;
     }
 
-    HANDLE release() {
-        HANDLE value = handle_;
-        handle_ = nullptr;
-        return value;
-    }
-
 private:
-    HANDLE handle_;
+    HANDLE handle_{nullptr};
 };
 
 }
@@ -55,46 +91,62 @@ InjectionResult Injector::Inject(
     InjectionResult result;
 
     if (dll_path.empty()) {
-        result.error = "DLL path is empty";
+        result.error =
+            "DLL path is empty";
         return result;
     }
 
-    HANDLE raw_process = OpenProcess(
-        PROCESS_CREATE_THREAD |
-        PROCESS_QUERY_INFORMATION |
-        PROCESS_VM_OPERATION |
-        PROCESS_VM_WRITE |
-        PROCESS_VM_READ,
-        FALSE,
-        process_id);
+    if (IsModuleLoaded(
+            process_id,
+            dll_path)) {
+
+        result.success = true;
+        result.already_loaded = true;
+        return result;
+    }
+
+    HANDLE raw_process =
+        OpenProcess(
+            PROCESS_CREATE_THREAD |
+            PROCESS_QUERY_INFORMATION |
+            PROCESS_VM_OPERATION |
+            PROCESS_VM_WRITE |
+            PROCESS_VM_READ,
+            FALSE,
+            process_id);
 
     if (raw_process == nullptr) {
-        result.error = Win32Error(
-            "OpenProcess",
-            GetLastError());
+        result.error =
+            Win32Error(
+                "OpenProcess",
+                GetLastError());
         return result;
     }
 
-    HandleGuard process(raw_process);
+    HandleGuard process(
+        raw_process);
 
     const SIZE_T bytes =
-        (dll_path.size() + 1) * sizeof(wchar_t);
+        (dll_path.size() + 1) *
+        sizeof(wchar_t);
 
-    void* remote_memory = VirtualAllocEx(
-        process.get(),
-        nullptr,
-        bytes,
-        MEM_RESERVE | MEM_COMMIT,
-        PAGE_READWRITE);
+    void* remote_memory =
+        VirtualAllocEx(
+            process.get(),
+            nullptr,
+            bytes,
+            MEM_RESERVE | MEM_COMMIT,
+            PAGE_READWRITE);
 
     if (remote_memory == nullptr) {
-        result.error = Win32Error(
-            "VirtualAllocEx",
-            GetLastError());
+        result.error =
+            Win32Error(
+                "VirtualAllocEx",
+                GetLastError());
         return result;
     }
 
-    const auto cleanup_memory =
+    const auto cleanup =
         [&]() {
             VirtualFreeEx(
                 process.get(),
@@ -113,23 +165,26 @@ InjectionResult Injector::Inject(
             &written) ||
         written != bytes) {
 
-        result.error = Win32Error(
-            "WriteProcessMemory",
-            GetLastError());
+        result.error =
+            Win32Error(
+                "WriteProcessMemory",
+                GetLastError());
 
-        cleanup_memory();
+        cleanup();
         return result;
     }
 
     HMODULE kernel32 =
-        GetModuleHandleW(L"kernel32.dll");
+        GetModuleHandleW(
+            L"kernel32.dll");
 
     if (kernel32 == nullptr) {
-        result.error = Win32Error(
-            "GetModuleHandleW(kernel32.dll)",
-            GetLastError());
+        result.error =
+            Win32Error(
+                "GetModuleHandleW(kernel32.dll)",
+                GetLastError());
 
-        cleanup_memory();
+        cleanup();
         return result;
     }
 
@@ -141,33 +196,37 @@ InjectionResult Injector::Inject(
                     "LoadLibraryW"));
 
     if (load_library == nullptr) {
-        result.error = Win32Error(
-            "GetProcAddress(LoadLibraryW)",
-            GetLastError());
+        result.error =
+            Win32Error(
+                "GetProcAddress(LoadLibraryW)",
+                GetLastError());
 
-        cleanup_memory();
+        cleanup();
         return result;
     }
 
-    HANDLE raw_thread = CreateRemoteThread(
-        process.get(),
-        nullptr,
-        0,
-        load_library,
-        remote_memory,
-        0,
-        nullptr);
+    HANDLE raw_thread =
+        CreateRemoteThread(
+            process.get(),
+            nullptr,
+            0,
+            load_library,
+            remote_memory,
+            0,
+            nullptr);
 
     if (raw_thread == nullptr) {
-        result.error = Win32Error(
-            "CreateRemoteThread",
-            GetLastError());
+        result.error =
+            Win32Error(
+                "CreateRemoteThread",
+                GetLastError());
 
-        cleanup_memory();
+        cleanup();
         return result;
     }
 
-    HandleGuard thread(raw_thread);
+    HandleGuard thread(
+        raw_thread);
 
     const DWORD wait_result =
         WaitForSingleObject(
@@ -176,16 +235,17 @@ InjectionResult Injector::Inject(
 
     if (wait_result == WAIT_TIMEOUT) {
         result.error =
-            "CreateRemoteThread did not finish within 15 seconds";
-        cleanup_memory();
+            "remote LoadLibraryW thread timed out";
+        cleanup();
         return result;
     }
 
     if (wait_result != WAIT_OBJECT_0) {
-        result.error = Win32Error(
-            "WaitForSingleObject",
-            GetLastError());
-        cleanup_memory();
+        result.error =
+            Win32Error(
+                "WaitForSingleObject",
+                GetLastError());
+        cleanup();
         return result;
     }
 
@@ -194,10 +254,13 @@ InjectionResult Injector::Inject(
     if (!GetExitCodeThread(
             thread.get(),
             &exit_code)) {
-        result.error = Win32Error(
-            "GetExitCodeThread",
-            GetLastError());
-        cleanup_memory();
+
+        result.error =
+            Win32Error(
+                "GetExitCodeThread",
+                GetLastError());
+
+        cleanup();
         return result;
     }
 
@@ -205,11 +268,11 @@ InjectionResult Injector::Inject(
         static_cast<std::uint32_t>(
             exit_code);
 
-    cleanup_memory();
+    cleanup();
 
     if (exit_code == 0) {
         result.error =
-            "LoadLibraryW returned NULL in the target process";
+            "LoadLibraryW returned NULL";
         return result;
     }
 
