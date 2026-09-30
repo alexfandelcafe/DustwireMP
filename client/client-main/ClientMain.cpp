@@ -14,25 +14,32 @@ bool ClientMain::Initialize(HMODULE module) {
 
     wchar_t module_path[MAX_PATH * 4]{};
 
+    constexpr DWORD module_path_capacity =
+        static_cast<DWORD>(
+            sizeof(module_path) /
+            sizeof(module_path[0]));
+
     const DWORD length =
         GetModuleFileNameW(
             module,
             module_path,
-            static_cast<DWORD>(
-                std::size(module_path)));
+            module_path_capacity);
 
     if (length == 0 ||
-        length >= std::size(module_path)) {
+        length >= module_path_capacity) {
+
         initialized_ = false;
         return false;
     }
 
     module_directory_ =
-        std::filesystem::path(module_path).parent_path();
+        std::filesystem::path(
+            module_path).parent_path();
 
-    logging::Logger::Instance().Initialize(
-        module_directory_ / "logs",
-        "client-main");
+    logging::Logger::Instance()
+        .Initialize(
+            module_directory_ / "logs",
+            "client-main");
 
     auto& logger =
         logging::Logger::Instance();
@@ -56,9 +63,10 @@ bool ClientMain::Initialize(HMODULE module) {
 
     stopping_ = false;
 
-    if (!tick_source_.Start([this]() {
-            Tick();
-        })) {
+    if (!tick_source_.Start(
+            [this]() {
+                Tick();
+            })) {
 
         logger.Error(
             "failed to start bootstrap tick source");
@@ -69,10 +77,13 @@ bool ClientMain::Initialize(HMODULE module) {
     }
 
     std::ostringstream message;
+
     message << "client-main initialized from "
             << module_directory_.string();
 
-    logger.Info(message.str());
+    logger.Info(
+        message.str());
+
     return true;
 }
 
@@ -82,8 +93,9 @@ void ClientMain::Stop() {
         return;
     }
 
-    logging::Logger::Instance().Info(
-        "client-main shutdown requested");
+    logging::Logger::Instance()
+        .Info(
+            "client-main shutdown requested");
 
     tick_source_.Stop();
     network_.Disconnect();
