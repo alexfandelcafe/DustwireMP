@@ -2,7 +2,7 @@
 
 This file is the persistent project roadmap for future chats.
 
-## Current state: v0.1 — Connection Skeleton
+## Current state: v0.2 — ENet transport
 
 Completed foundations:
 
@@ -10,13 +10,17 @@ Completed foundations:
 - Shared protocol types.
 - Binary reader/writer.
 - Versioned packet header.
-- WinSock UDP transport abstraction.
-- HELLO/WELCOME handshake.
-- Server player-ID allocation.
-- Client connection state machine.
 - CEF-facing browser API abstraction.
 - HTML/CSS/JS UI mock.
-- Prolix Windows build script with error log.
+- ENet client/server transport.
+- Reliable control traffic on channel 0.
+- Low-latency traffic on channel 1.
+- HELLO/WELCOME/READY handshake.
+- Server player-ID allocation.
+- ENet peer disconnect detection.
+- Client ping measurement.
+- Protocol smoke test.
+- Reproducible ENet dependency pin.
 
 Current packet set:
 
@@ -26,36 +30,38 @@ Current packet set:
 - `0x0004 PING`: connectivity test.
 - `0x0005 PONG`: connectivity response.
 
-## v0.2 — Real ENet transport
+Transport rules:
 
-Goal: replace only `UdpTransport` with ENet.
+- Channel 0 is used for reliable/control messages.
+- Channel 1 is used for low-latency messages.
+- Gameplay code does not include ENet headers.
+- The shared packet format stays above the transport.
 
-Work items:
+The exact original RDRMP wire layout is a separate reverse-engineering task and is not part of the DustwireMP protocol.
 
-- Add ENet as `third_party` or CMake dependency.
-- Implement reliable/unreliable channels.
-- Preserve `PacketHeader` + payload protocol.
-- Add connection timeout and peer disconnect handling.
-- Add ping measurement.
+## v0.3 — RDR1 client launcher / injection / game tick
 
-Do not mix ENet concerns into gameplay classes.
-
-## v0.3 — RDR1 client injection / game bridge
-
-Goal: get `client-main.dll` loaded by RDR1 and execute a stable game tick.
+Goal: get `client-main.dll` loaded by the target RDR1 build and execute a stable client tick.
 
 Work items:
 
-- Launcher process discovery.
-- DLL injection.
-- `GameBridge` interface.
+- `DustwireMPLauncher.exe` process discovery.
+- Targeted RDR.exe version detection.
+- DLL injection into the selected process.
+- Injected-process logger.
+- Stable initialization/shutdown lifecycle.
 - Game tick hook.
 - Local actor discovery.
-- Safe logging inside injected process.
+- First GameBridge implementation.
+- Configuration for the RDR1 executable path.
 
-The exact RDR1 addresses/signatures must be verified against the targeted game build before implementing memory hooks.
+Do not hard-code addresses from an unrelated game build. Each memory signature/address must be verified against the targeted executable before shipping it.
 
-## v0.4 — Player replication
+Suggested client flow:
+
+`DustwireMPLauncher -> RDR.exe -> client-main.dll -> ClientMain::Initialize -> GameBridge -> ClientNetwork -> Tick`
+
+## v0.4 — Two-player replication
 
 Goal: two clients can see each other.
 
@@ -66,6 +72,7 @@ Server authority:
 - Track model, position, rotation.
 - Broadcast spawn/despawn.
 - Broadcast transforms.
+- Reject malformed or oversized packets.
 
 Client:
 
@@ -73,6 +80,7 @@ Client:
 - Remote actor creation.
 - Remote actor deletion.
 - Transform interpolation.
+- Basic range/interest filtering.
 
 Suggested packet IDs:
 
@@ -80,6 +88,12 @@ Suggested packet IDs:
 - `0x0101 PLAYER_DELETE`
 - `0x0102 PLAYER_TRANSFORM`
 - `0x0103 PLAYER_MODEL`
+
+Suggested update rate:
+
+- Simulation/network input: 20–30 Hz initially.
+- Remote visual interpolation: render frame rate.
+- Final rates should be measured rather than assumed.
 
 ## v0.5 — Chat and events
 
@@ -89,6 +103,7 @@ Suggested packet IDs:
 - Server events.
 - Event payload serializer.
 - Rate limiting.
+- Message length limits.
 
 ## v0.6 — Lua resources
 
@@ -109,11 +124,11 @@ Lua APIs to target:
 - `TriggerClientEvent`
 - `AddEventHandler`
 
-The exact API can evolve; keep resource scripts independent from the network transport.
+Keep scripts independent from the transport implementation.
 
-## v0.7 — CEF integration
+## v0.7 — Real CEF integration
 
-Goal: replace UI mock with real CEF.
+Goal: replace the UI mock with the actual CEF SDK inside the client.
 
 Planned browser API:
 
@@ -121,6 +136,7 @@ Planned browser API:
 rdrmp.connectToServer(host, port)
 rdrmp.disconnect()
 rdrmp.getConnectionState()
+rdrmp.getPing()
 rdrmp.on(eventName, callback)
 ```
 
@@ -134,9 +150,10 @@ loadingWorld
 disconnected
 connectionError
 serverInfo
+pingUpdated
 ```
 
-CEF should never own sockets or game state.
+CEF must not own sockets, ENet peers, gameplay state, or RDR1 actor state.
 
 ## v0.8 — Server browser / master server
 
@@ -154,15 +171,16 @@ Master server responsibilities:
 - Heartbeat.
 - Player count.
 - Server metadata.
-- Optional favorites/auth in a later phase.
+- Optional authentication later.
 
 ## v0.9 — World synchronization
 
 - Time of day.
 - Weather.
-- Interior/world state.
 - Spawn points.
+- Interior/world state.
 - Basic streaming/range checks.
+- Initial authoritative world state.
 
 ## v1.0 — Production foundation
 
@@ -173,9 +191,26 @@ Master server responsibilities:
 - Admin permissions.
 - Security/rate limits.
 - Performance profiling.
-- Automated protocol tests.
+- Automated protocol/transport tests.
 - Dedicated server packaging.
+- Release packaging for client and server.
+
+## Persistent next-chat checklist
+
+When continuing the project, use this order:
+
+1. Read `README.md` and this file.
+2. Inspect the current client/server/network code in GitHub.
+3. Do not reintroduce direct ENet calls into gameplay classes.
+4. Keep protocol definitions in `shared/protocol/`.
+5. Keep transport implementations in `shared/net/`.
+6. For RDR1 integration, verify the exact game executable/build before using signatures or memory addresses.
+7. Update this roadmap after completing a milestone.
 
 ## Next chat starting point
 
-Start from `v0.1` and implement **v0.2 ENet** without changing the shared packet format. Then move to **v0.3 RDR1 injection + GameBridge**.
+Start from v0.2 and implement **v0.3**:
+
+`launcher -> RDR.exe discovery -> DLL injection -> client-main.dll -> stable game tick -> GameBridge stub`
+
+Then connect `ClientNetwork` to that tick without moving ENet code into GameBridge.
