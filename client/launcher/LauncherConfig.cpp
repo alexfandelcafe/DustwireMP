@@ -193,6 +193,17 @@ LauncherConfig LauncherConfigReader::Load(
         } else if (key == "expected_machine") {
             config.expected_machine =
                 ParseU16(value, config.expected_machine);
+        } else if (key == "expected_text_rva") {
+            config.expected_text_rva =
+                ParseU32(value, config.expected_text_rva);
+        } else if (key == "expected_text_size") {
+            config.expected_text_size =
+                ParseU32(value, config.expected_text_size);
+        } else if (key == "expected_text_fnv1a64") {
+            config.expected_text_fnv1a64 =
+                ParseU64(value, config.expected_text_fnv1a64);
+        } else if (key == "expected_file_version") {
+            config.expected_file_version = value;
         } else if (key == "expected_sha256") {
             const auto normalized =
                 NormalizeSha256(value);
