@@ -13,7 +13,6 @@ namespace {
 
 std::filesystem::path ExecutableDirectory() {
     wchar_t path[MAX_PATH * 4]{};
-
     const DWORD length =
         GetModuleFileNameW(
             nullptr,
@@ -22,61 +21,47 @@ std::filesystem::path ExecutableDirectory() {
                 sizeof(path) / sizeof(path[0])));
 
     if (length == 0 ||
-        length >=
-            sizeof(path) / sizeof(path[0])) {
-
+        length >= sizeof(path) / sizeof(path[0])) {
         return std::filesystem::current_path();
     }
 
-    return std::filesystem::path(path)
-        .parent_path();
+    return std::filesystem::path(path).parent_path();
 }
 
 std::filesystem::path Resolve(
     const std::filesystem::path& base,
     const std::filesystem::path& path) {
 
-    if (path.is_absolute()) {
-        return path;
-    }
-
-    return base / path;
+    return path.is_absolute()
+        ? path
+        : base / path;
 }
 
-std::string Narrow(
-    const std::wstring& value) {
-
-    if (value.empty()) {
-        return {};
-    }
+std::string Narrow(const std::wstring& value) {
+    if (value.empty()) return {};
 
     const int length =
         WideCharToMultiByte(
             CP_UTF8,
             0,
             value.data(),
-            static_cast<int>(
-                value.size()),
+            static_cast<int>(value.size()),
             nullptr,
             0,
             nullptr,
             nullptr);
 
-    if (length <= 0) {
-        return {};
-    }
+    if (length <= 0) return {};
 
     std::string result(
-        static_cast<std::size_t>(
-            length),
+        static_cast<std::size_t>(length),
         '\0');
 
     WideCharToMultiByte(
         CP_UTF8,
         0,
         value.data(),
-        static_cast<int>(
-            value.size()),
+        static_cast<int>(value.size()),
         result.data(),
         length,
         nullptr,
@@ -85,18 +70,43 @@ std::string Narrow(
     return result;
 }
 
+bool MatchesExpectedProfile(
+    const dustwire::launcher::LauncherConfig& config,
+    const dustwire::launcher::GameBuildInfo& build) {
+
+    if (config.expected_machine != 0 &&
+        config.expected_machine != build.machine) {
+        return false;
+    }
+
+    if (config.expected_timestamp != 0 &&
+        config.expected_timestamp != build.timestamp) {
+        return false;
+    }
+
+    if (config.expected_image_size != 0 &&
+        config.expected_image_size != build.image_size) {
+        return false;
+    }
+
+    if (config.expected_file_size != 0 &&
+        config.expected_file_size != build.file_size) {
+        return false;
+    }
+
+    return true;
+}
+
 }
 
 int wmain() {
     using namespace dustwire::launcher;
 
-    const auto root =
-        ExecutableDirectory();
+    const auto root = ExecutableDirectory();
 
-    dustwire::logging::Logger::Instance()
-        .Initialize(
-            root / "logs",
-            "launcher");
+    dustwire::logging::Logger::Instance().Initialize(
+        root / "logs",
+        "launcher");
 
     auto& logger =
         dustwire::logging::Logger::Instance();
@@ -106,47 +116,28 @@ int wmain() {
 
     const auto config =
         LauncherConfigReader().Load(
-            root /
-            "config" /
-            "launcher.ini");
+            root / "config" / "launcher.ini");
 
     const auto game_path =
-        Resolve(
-            root,
-            config.game_path);
-
+        Resolve(root, config.game_path);
     const auto client_dll =
-        Resolve(
-            root,
-            config.client_dll);
+        Resolve(root, config.client_dll);
 
-    logger.Info(
-        "Launcher root: " +
-        root.string());
-
-    logger.Info(
-        "Game path: " +
-        game_path.string());
-
-    logger.Info(
-        "Client DLL: " +
-        client_dll.string());
+    logger.Info("Launcher root: " + root.string());
+    logger.Info("Game path: " + game_path.string());
+    logger.Info("Client DLL: " + client_dll.string());
 
     ProcessLocator locator;
-
     auto game_process =
-        locator.FindFirstByName(
-            config.target_process);
+        locator.FindFirstByName(config.target_process);
 
     if (game_process.pid == 0) {
-        logger.Info(
-            "RDR.exe is not running; launching it");
+        logger.Info("RDR.exe is not running; launching it");
 
-        if (!std::filesystem::exists(
-                game_path)) {
-
+        if (!std::filesystem::exists(game_path)) {
             logger.Error(
-                "configured game executable does not exist");
+                "configured game executable does not exist: " +
+                game_path.string());
             return 2;
         }
 
@@ -156,94 +147,84 @@ int wmain() {
                 game_path.wstring(),
                 game_path.parent_path().wstring(),
                 launched_pid)) {
-
-            logger.Error(
-                "failed to launch RDR.exe");
+            logger.Error("failed to launch RDR.exe");
             return 3;
         }
 
-        std::ostringstream message;
-        message << "RDR.exe launched with pid="
-                << launched_pid;
-
-        logger.Info(message.str());
+        std::ostringstream launched;
+        launched << "RDR.exe launched with pid=" << launched_pid;
+        logger.Info(launched.str());
 
         if (!locator.WaitForProcess(
                 config.target_process,
                 config.wait_for_game_ms,
                 game_process)) {
-
-            logger.Error(
-                "timed out waiting for RDR.exe");
+            logger.Error("timed out waiting for RDR.exe");
             return 4;
         }
     }
 
-    std::ostringstream target_message;
-    target_message << "Target pid="
-                   << game_process.pid
-                   << " image="
-                   << Narrow(game_process.image_path);
-
-    logger.Info(target_message.str());
+    std::ostringstream target;
+    target << "Target pid=" << game_process.pid
+           << " image=" << Narrow(game_process.image_path);
+    logger.Info(target.str());
 
     GameBuild build;
-
     const auto build_info =
-        build.Inspect(
-            game_process.image_path);
+        build.Inspect(game_process.image_path);
 
     if (!build_info.valid_pe) {
-        logger.Error(
-            "target executable has an invalid PE image");
+        logger.Error("target executable has an invalid PE image");
         return 5;
     }
 
     std::ostringstream fingerprint;
     fingerprint << "PE machine=0x"
-                << std::hex
-                << build_info.machine
-                << " x64="
-                << std::dec
+                << std::hex << build_info.machine
+                << " x64=" << std::dec
                 << (build_info.is_64_bit ? 1 : 0)
-                << " timestamp="
-                << build_info.timestamp
-                << " image_size=0x"
-                << std::hex
+                << " timestamp=" << build_info.timestamp
+                << " image_size=0x" << std::hex
                 << build_info.image_size
-                << " file_size="
-                << std::dec
+                << " file_size=" << std::dec
                 << build_info.file_size;
-
-    logger.Info(
-        fingerprint.str());
+    logger.Info(fingerprint.str());
 
     if (config.require_x64) {
         std::wstring reason;
-
-        if (!build.IsSupported(
-                build_info,
-                reason)) {
-
+        if (!build.IsSupported(build_info, reason)) {
             logger.Error(
-                "unsupported game build: " +
-                Narrow(reason));
+                "unsupported architecture: " + Narrow(reason));
             return 6;
         }
     }
 
-    if (!std::filesystem::exists(
-            client_dll)) {
+    const bool has_exact_profile =
+        config.expected_machine != 0 ||
+        config.expected_timestamp != 0 ||
+        config.expected_image_size != 0 ||
+        config.expected_file_size != 0;
 
+    if (has_exact_profile) {
+        if (!MatchesExpectedProfile(config, build_info)) {
+            logger.Error(
+                "RDR.exe does not match the configured exact build profile");
+            return 7;
+        }
+        logger.Info("exact RDR1 build profile matched");
+    } else {
+        logger.Warning(
+            "no exact RDR1 build profile configured; x64-only bootstrap check is active");
+    }
+
+    if (!std::filesystem::exists(client_dll)) {
         logger.Error(
             "client-main DLL not found: " +
             client_dll.string());
-
-        return 7;
+        return 8;
     }
 
-    logger.Info(
-        "injecting DustwireMPClientModule.dll");
+    logger.Info("injecting DustwireMPClientModule.dll");
 
     const auto result =
         Injector().Inject(
@@ -252,28 +233,20 @@ int wmain() {
 
     if (!result.success) {
         logger.Error(
-            "DLL injection failed: " +
-            result.error);
-        return 8;
+            "DLL injection failed: " + result.error);
+        return 9;
     }
 
     if (result.already_loaded) {
         logger.Warning(
-            "client-main DLL already loaded; "
-            "injection skipped");
+            "client-main DLL already loaded; injection skipped");
     } else {
-        std::ostringstream message;
-        message << "DLL injection succeeded; "
-                << "remote module handle=0x"
-                << std::hex
-                << result.remote_exit_code;
-
-        logger.Info(
-            message.str());
+        std::ostringstream injected;
+        injected << "DLL injection succeeded; remote module handle=0x"
+                 << std::hex << result.remote_exit_code;
+        logger.Info(injected.str());
     }
 
-    logger.Info(
-        "DustwireMPLauncher finished successfully");
-
+    logger.Info("DustwireMPLauncher finished successfully");
     return 0;
 }
