@@ -55,9 +55,9 @@ build-vs2026/bin/Debug/
   config/launcher.ini
 ~~~
 
-Use `run_build_probe.bat "C:\\path\\to\\RDR.exe"` to inspect an RDR1 executable without launching or injecting anything.
+Use `run_build_probe.bat "C:\\path\\to\\RDR.exe"` to inspect an RDR1 executable without launching or injecting anything. When started without an argument, the script prompts for the full path.
 
-Use `run_launcher.bat` for the RDR1 bootstrap. Its launcher log is written to `logs/launcher.log` when run from the repository root.
+Use `run_launcher.bat "C:\\path\\to\\RDR.exe"` for the RDR1 bootstrap. Its launcher log is written to `logs/launcher.log` when run from the repository root.
 
 Use `run_server.bat` and `run_client.bat` for the standalone networking test pair.
 
