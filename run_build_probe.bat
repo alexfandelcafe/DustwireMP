@@ -1,5 +1,5 @@
 @echo off
-setlocal
+setlocal EnableExtensions EnableDelayedExpansion
 cd /d "%~dp0"
 
 set "EXE=build-vs2026\bin\Debug\DustwireMPBuildProbe.exe"
@@ -17,12 +17,13 @@ if "%~1"=="" (
   echo.
   set /p "RDR_PATH=Enter the full path to RDR.exe: "
   echo.
-  if "%RDR_PATH%"=="" (
+  set "RDR_PATH=!RDR_PATH:"=!"
+  if "!RDR_PATH!"=="" (
     echo No RDR.exe path supplied.
     pause
     exit /b 2
   )
-  "%EXE%" "%RDR_PATH%"
+  "%EXE%" "!RDR_PATH!"
 ) else (
   "%EXE%" "%~1"
 )
