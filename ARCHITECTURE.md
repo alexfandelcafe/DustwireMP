@@ -65,16 +65,16 @@ DustwireMPLauncher.exe
                                       +--> Logger
                                       +--> GameBridge
                                       +--> ClientNetwork
-                                      +--> BootstrapTickSource
+                                      +--> Rdr1GameTickSource
 ```
 
 The injector is only a bootstrap mechanism. The module is built x64 together with the launcher.
 
 ## Important v0.3 limitation
 
-`BootstrapTickSource` is a temporary worker loop. It is not an RDR1 frame/update hook.
+`Rdr1GameTickSource` now uses the historical RDR1 game-thread path for the verified `1.0.42.46611` build. It attaches through the native `scrThread::Wait` handler and dispatches the client callback from an authorized script context.
 
-No RDR1 memory reads or writes should be added to that worker. The real game tick must be implemented only after the exact target RDR1 executable build and a verified update-function signature are documented.
+The old `BootstrapTickSource` remains only as reusable bootstrap infrastructure; `ClientMain` no longer uses it.
 
 ## Ownership rules
 
@@ -222,4 +222,4 @@ For future chats, read:
 
 Then inspect the current GitHub tree and commit state before changing interfaces.
 
-Next implementation milestone: replace `BootstrapTickSource` with a verified RDR1 game tick source for the exact supported executable build, then wire local actor discovery through `GameBridge`.
+Next implementation milestone: use the verified RDR1 game-thread callback to discover and snapshot the local actor through `GameBridge`.
