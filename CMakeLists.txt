@@ -96,6 +96,11 @@ target_include_directories(
     dustwire_client_game
     PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
 )
+target_link_libraries(
+    dustwire_client_game
+    PUBLIC
+        dustwire_logging
+)
 
 add_library(dustwire_client_cef STATIC
     client/client-cef/CEFBridge.cpp
