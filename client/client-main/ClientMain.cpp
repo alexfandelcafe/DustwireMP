@@ -115,7 +115,7 @@ void ClientMain::Tick() {
         (tick_count_ % 120) == 0) {
 
         std::ostringstream tick;
-        tick << "bootstrap tick count="
+        tick << "RDR1 game tick count="
              << tick_count_
              << " tid="
              << GetCurrentThreadId()
