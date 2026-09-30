@@ -14,11 +14,13 @@ Completed:
 - v0.2 protocol and ENet loopback tests.
 - Visual Studio 18 2026 x64 local builder.
 - Windows CI using the VS 2026 runner image.
-- v0.3 `DustwireMPLauncher.exe`.
-- v0.3 `ProcessLocator`.
-- v0.3 PE/x64 `GameBuild` validation.
-- v0.3 `Injector`.
-- v0.3 `DustwireMPClientModule.dll`.
+- v0.3 DustwireMPLauncher.exe.
+- v0.3 ProcessLocator.
+- v0.3 PE/x64 GameBuild validation.
+- v0.3 PE fingerprint logging.
+- v0.3 SHA-256 executable fingerprinting.
+- v0.3 Injector.
+- v0.3 DustwireMPClientModule.dll.
 - v0.3 injected logging.
 - v0.3 bootstrap tick source.
 
@@ -28,11 +30,11 @@ Do not mark this complete until the exact target RDR1 executable build is identi
 
 Tasks:
 
-- Capture a PE fingerprint from the real target RDR.exe.
+- Capture the SHA-256 and PE fingerprint from the real target RDR.exe.
 - Decide the supported executable build/profile.
-- Add a build profile file.
+- Add the exact fingerprint to a strict launcher profile.
 - Locate the game update/tick function using a verified signature or documented address for that exact build.
-- Add `Rdr1GameTickSource`.
+- Add Rdr1GameTickSource.
 - Verify the hook executes at the expected cadence.
 - Keep the hook failure-safe.
 - Only after the tick is verified, begin local actor discovery.
@@ -62,10 +64,10 @@ Client:
 
 Suggested packet IDs:
 
-- `0x0100 PLAYER_SPAWN`
-- `0x0101 PLAYER_DELETE`
-- `0x0102 PLAYER_TRANSFORM`
-- `0x0103 PLAYER_MODEL`
+- 0x0100 PLAYER_SPAWN
+- 0x0101 PLAYER_DELETE
+- 0x0102 PLAYER_TRANSFORM
+- 0x0103 PLAYER_MODEL
 
 ## v0.5 — Chat and events
 
@@ -79,20 +81,20 @@ Suggested packet IDs:
 
 ## v0.6 — Lua resources
 
-```text
+~~~text
 resources/
   chat/
     manifest.toml
     client.lua
     server.lua
-```
+~~~
 
 Target APIs:
 
-- `RegisterNetEvent`
-- `TriggerServerEvent`
-- `TriggerClientEvent`
-- `AddEventHandler`
+- RegisterNetEvent
+- TriggerServerEvent
+- TriggerClientEvent
+- AddEventHandler
 
 ## v0.7 — Real CEF integration
 
@@ -100,23 +102,27 @@ Goal: replace the UI mock with actual CEF inside the client.
 
 Browser API:
 
-```text
+~~~text
 rdrmp.connectToServer(host, port)
 rdrmp.disconnect()
 rdrmp.getConnectionState()
 rdrmp.getPing()
 rdrmp.on(eventName, callback)
-```
+~~~
 
 CEF must not own sockets, ENet peers, gameplay state, or RDR1 actor state.
 
 ## v0.8 — Server browser / master server
 
-`CEF -> HTTPS API -> master server`
+~~~text
+CEF -> HTTPS API -> master server
+~~~
 
 Gameplay remains:
 
-`client -> ENet -> game server`
+~~~text
+client -> ENet -> game server
+~~~
 
 ## v0.9 — World synchronization
 
@@ -141,11 +147,11 @@ Gameplay remains:
 
 ## Persistent next-chat checklist
 
-1. Read `README.md`, `ROADMAP.md`, `ARCHITECTURE.md`, and `docs/V0.3_BOOTSTRAP.md`.
+1. Read README.md, ROADMAP.md, ARCHITECTURE.md, and docs/V0.3_BOOTSTRAP.md.
 2. Inspect the current GitHub tree and latest commit.
-3. Keep protocol code in `shared/protocol/`.
-4. Keep transport code in `shared/net/`.
-5. Keep RDR1-specific code behind `GameBridge` / game-tick interfaces.
+3. Keep protocol code in shared/protocol/.
+4. Keep transport code in shared/net/.
+5. Keep RDR1-specific code behind GameBridge / game-tick interfaces.
 6. Never ship an RDR1 memory address without verifying it against the supported executable build.
 7. Update this document after each milestone.
 
@@ -153,6 +159,6 @@ Gameplay remains:
 
 Implement the verified RDR1 game tick:
 
-`RDR.exe build fingerprint -> signature/profile -> Rdr1GameTickSource -> ClientMain::Tick -> GameBridge`
+RDR.exe build fingerprint -> signature/profile -> Rdr1GameTickSource -> ClientMain::Tick -> GameBridge
 
 Then use the verified tick to discover the local actor before implementing v0.4 replication.
