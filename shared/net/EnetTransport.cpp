@@ -5,7 +5,10 @@
 
 namespace dustwire::net {
 
-EnetTransport::EnetTransport(std::uint16_t local_port, std::size_t max_peers, std::size_t channel_count)
+EnetTransport::EnetTransport(
+    std::uint16_t local_port,
+    std::size_t max_peers,
+    std::size_t channel_count)
     : local_port_(local_port),
       max_peers_(max_peers),
       channel_count_(channel_count == 0 ? 1 : channel_count) {}
@@ -38,15 +41,32 @@ bool EnetTransport::Start() {
     }
 
     if (local_port_ == 0) {
-        host_ = enet_host_create(nullptr, max_peers_, channel_count_, 0, 0);
+        host_ = enet_host_create(
+            nullptr,
+            max_peers_,
+            channel_count_,
+            0,
+            0);
     } else {
         ENetAddress address{};
         address.host = ENET_HOST_ANY;
         address.port = local_port_;
-        host_ = enet_host_create(&address, max_peers_, channel_count_, 0, 0);
+
+        host_ = enet_host_create(
+            &address,
+            max_peers_,
+            channel_count_,
+            0,
+            0);
     }
 
     return host_ != nullptr;
+}
+
+void EnetTransport::DisconnectPeer() {
+    if (connected_peer_ != nullptr) {
+        enet_peer_disconnect(connected_peer_, 0);
+    }
 }
 
 void EnetTransport::Stop() {
@@ -54,16 +74,16 @@ void EnetTransport::Stop() {
         return;
     }
 
-    for (const auto& [key, peer] : peers_) {
-        (void)key;
-        if (peer != nullptr) {
-            enet_peer_disconnect_now(peer, 0);
-        }
-    }
-
     if (connected_peer_ != nullptr) {
         enet_peer_disconnect_now(connected_peer_, 0);
         connected_peer_ = nullptr;
+    }
+
+    for (const auto& [key, peer] : peers_) {
+        (void)key;
+        if (peer != nullptr && peer != connected_peer_) {
+            enet_peer_disconnect_now(peer, 0);
+        }
     }
 
     enet_host_flush(host_);
@@ -78,7 +98,11 @@ std::string EnetTransport::EndpointKey(const Endpoint& endpoint) {
 
 Endpoint EnetTransport::EndpointFromAddress(const ENetAddress& address) {
     char host[64]{};
-    if (enet_address_get_host_ip(&address, host, sizeof(host)) != 0) {
+
+    if (enet_address_get_host_ip(
+            &address,
+            host,
+            sizeof(host)) != 0) {
         return {};
     }
 
@@ -91,17 +115,22 @@ bool EnetTransport::Connect(const Endpoint& endpoint) {
     }
 
     ENetAddress address{};
-    if (enet_address_set_host(&address, endpoint.host.c_str()) != 0) {
+
+    if (enet_address_set_host(
+            &address,
+            endpoint.host.c_str()) != 0) {
         return false;
     }
+
     address.port = endpoint.port;
 
-    connected_peer_ = enet_host_connect(host_, &address, channel_count_, 0);
-    if (connected_peer_ == nullptr) {
-        return false;
-    }
+    connected_peer_ = enet_host_connect(
+        host_,
+        &address,
+        channel_count_,
+        0);
 
-    return true;
+    return connected_peer_ != nullptr;
 }
 
 bool EnetTransport::SendToPeer(
@@ -110,7 +139,9 @@ bool EnetTransport::SendToPeer(
     Delivery delivery,
     std::uint8_t channel) {
 
-    if (peer == nullptr || host_ == nullptr || channel >= channel_count_) {
+    if (peer == nullptr ||
+        host_ == nullptr ||
+        channel >= channel_count_) {
         return false;
     }
 
@@ -119,12 +150,19 @@ bool EnetTransport::SendToPeer(
             ? ENET_PACKET_FLAG_RELIABLE
             : 0;
 
-    ENetPacket* packet = enet_packet_create(data.data(), data.size(), flags);
+    ENetPacket* packet = enet_packet_create(
+        data.data(),
+        data.size(),
+        flags);
+
     if (packet == nullptr) {
         return false;
     }
 
-    if (enet_peer_send(peer, channel, packet) != 0) {
+    if (enet_peer_send(
+            peer,
+            channel,
+            packet) != 0) {
         enet_packet_destroy(packet);
         return false;
     }
@@ -136,7 +174,11 @@ bool EnetTransport::Send(
     const Endpoint& endpoint,
     const std::vector<std::uint8_t>& data) {
 
-    return Send(endpoint, data, Delivery::Reliable, 0);
+    return Send(
+        endpoint,
+        data,
+        Delivery::Reliable,
+        0);
 }
 
 bool EnetTransport::Send(
@@ -151,54 +193,92 @@ bool EnetTransport::Send(
 
     _ENetPeer* peer = nullptr;
 
-    if (connected_peer_ != nullptr) {
+    if (connected_peer_ != nullptr &&
+        max_peers_ == 1) {
         peer = connected_peer_;
     } else {
-        const auto it = peers_.find(EndpointKey(endpoint));
+        const auto it =
+            peers_.find(EndpointKey(endpoint));
+
         if (it != peers_.end()) {
             peer = it->second;
         }
     }
 
-    return SendToPeer(peer, data, delivery, channel);
+    return SendToPeer(
+        peer,
+        data,
+        delivery,
+        channel);
 }
 
 std::vector<Datagram> EnetTransport::Poll() {
     std::vector<Datagram> out;
+
     if (host_ == nullptr) {
         return out;
     }
 
     ENetEvent event{};
-    while (enet_host_service(host_, &event, 0) > 0) {
-        if (event.type == ENET_EVENT_TYPE_CONNECT) {
-            const Endpoint endpoint = EndpointFromAddress(event.peer->address);
-            peers_[EndpointKey(endpoint)] = event.peer;
-            if (connected_peer_ == nullptr) {
+
+    while (enet_host_service(
+               host_,
+               &event,
+               0) > 0) {
+
+        if (event.type ==
+            ENET_EVENT_TYPE_CONNECT) {
+
+            const Endpoint endpoint =
+                EndpointFromAddress(event.peer->address);
+
+            peers_[EndpointKey(endpoint)] =
+                event.peer;
+
+            if (max_peers_ == 1) {
                 connected_peer_ = event.peer;
             }
+
             continue;
         }
 
-        if (event.type == ENET_EVENT_TYPE_DISCONNECT) {
-            const Endpoint endpoint = EndpointFromAddress(event.peer->address);
+        if (event.type ==
+            ENET_EVENT_TYPE_DISCONNECT) {
+
+            const Endpoint endpoint =
+                EndpointFromAddress(event.peer->address);
+
             peers_.erase(EndpointKey(endpoint));
-            disconnected_peers_.push_back(endpoint);
+
             if (event.peer == connected_peer_) {
                 connected_peer_ = nullptr;
                 disconnected_flag_ = true;
             }
+
+            disconnected_peers_.push_back(endpoint);
             continue;
         }
 
-        if (event.type == ENET_EVENT_TYPE_RECEIVE && event.packet != nullptr) {
+        if (event.type ==
+            ENET_EVENT_TYPE_RECEIVE &&
+            event.packet != nullptr) {
+
             Datagram datagram;
-            datagram.from = EndpointFromAddress(event.peer->address);
+
+            datagram.from =
+                EndpointFromAddress(
+                    event.peer->address);
+
             datagram.payload.assign(
                 event.packet->data,
-                event.packet->data + event.packet->dataLength);
-            out.push_back(std::move(datagram));
-            enet_packet_destroy(event.packet);
+                event.packet->data +
+                event.packet->dataLength);
+
+            out.push_back(
+                std::move(datagram));
+
+            enet_packet_destroy(
+                event.packet);
         }
     }
 
@@ -207,16 +287,20 @@ std::vector<Datagram> EnetTransport::Poll() {
 
 bool EnetTransport::IsConnected() const {
     return connected_peer_ != nullptr &&
-           connected_peer_->state == ENET_PEER_STATE_CONNECTED;
+           connected_peer_->state ==
+               ENET_PEER_STATE_CONNECTED;
 }
 
 bool EnetTransport::WasDisconnected() {
-    const bool value = disconnected_flag_;
+    const bool value =
+        disconnected_flag_;
+
     disconnected_flag_ = false;
     return value;
 }
 
-std::vector<Endpoint> EnetTransport::TakeDisconnectedPeers() {
+std::vector<Endpoint>
+EnetTransport::TakeDisconnectedPeers() {
     std::vector<Endpoint> result;
     result.swap(disconnected_peers_);
     return result;
