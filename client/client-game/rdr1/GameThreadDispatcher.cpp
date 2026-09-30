@@ -10,6 +10,8 @@
 #include <cstdio>
 #include <cstring>
 
+#include "../../../shared/logging/Logger.hpp"
+
 namespace dustwire::rdr1 {
 
 namespace {
@@ -375,6 +377,9 @@ bool GameThreadDispatcher::Attach(
         return false;
     }
 
+    dustwire::logging::Logger::Instance().Info(
+        "RDR1 dispatcher hooks installed: scrThread::Wait, GET_THIS_SCRIPT_ID, GET_SCRIPT_NAME");
+
     OutputDebugStringA(
         "[DustwireRDR1] game-thread dispatcher attached\n");
     return true;
@@ -615,8 +620,8 @@ std::size_t GameThreadDispatcher::Pump(
                 true,
                 std::memory_order_release);
 
-            OutputDebugStringA(
-                "[DustwireRDR1] game-thread context acquired\n");
+            dustwire::logging::Logger::Instance().Info(
+                "RDR1 game-thread context acquired");
         }
     }
 
@@ -707,6 +712,27 @@ bool GameThreadDispatcher::IsGameThread() const {
 
 void GameThreadDispatcher::WaitHook(
     void* context) {
+
+    static std::atomic<std::uint32_t> trace_count{0};
+    const auto trace = trace_count.fetch_add(
+        1,
+        std::memory_order_relaxed);
+
+    if (trace < 16) {
+        char line[192]{};
+        std::snprintf(
+            line,
+            sizeof(line),
+            "RDR1 scrThread::Wait hook trace=%u context=0x%llX tid=%lu",
+            trace,
+            static_cast<unsigned long long>(
+                reinterpret_cast<std::uintptr_t>(context)),
+            static_cast<unsigned long>(
+                GetCurrentThreadId()));
+
+        dustwire::logging::Logger::Instance().Info(
+            line);
+    }
 
     g_hook_in_flight.fetch_add(
         1,
