@@ -117,6 +117,26 @@ bool MatchesExpectedProfile(
         return false;
     }
 
+    if (config.expected_text_rva != 0 &&
+        config.expected_text_rva != build.text_rva) {
+        return false;
+    }
+
+    if (config.expected_text_size != 0 &&
+        config.expected_text_size != build.text_size) {
+        return false;
+    }
+
+    if (config.expected_text_fnv1a64 != 0 &&
+        config.expected_text_fnv1a64 != build.text_fnv1a64) {
+        return false;
+    }
+
+    if (!config.expected_file_version.empty() &&
+        config.expected_file_version != build.file_version) {
+        return false;
+    }
+
     if (!config.expected_sha256.empty() &&
         config.expected_sha256 != build.sha256) {
         return false;
@@ -282,6 +302,10 @@ int wmain() {
         config.expected_timestamp != 0 ||
         config.expected_image_size != 0 ||
         config.expected_file_size != 0 ||
+        config.expected_text_rva != 0 ||
+        config.expected_text_size != 0 ||
+        config.expected_text_fnv1a64 != 0 ||
+        !config.expected_file_version.empty() ||
         !config.expected_sha256.empty();
 
     if (has_exact_profile) {
