@@ -87,7 +87,7 @@ expected_sha256=
 
 Relative paths are resolved from the launcher executable directory.
 
-The exact-profile fields remain empty while discovering the supported game build. Once a real `RDR.exe` is identified, the launcher can enforce the selected fingerprint.
+The repository currently contains a strict profile for the verified RDR1 build `1.0.42.46611`. The launcher rejects `RDR.exe` when any configured fingerprint field differs.
 
 ## Exact RDR1 build fingerprint
 
@@ -111,7 +111,7 @@ The relevant line has the form:
 PE machine=0x8664 x64=1 timestamp=... image_size=0x... file_size=... sha256=...
 ~~~
 
-Copy the observed values into `config/launcher.ini` to enable a strict profile. See `docs/V0.3_BUILD_PROFILE.md` for the workflow.
+The verified profile is already stored in `config/launcher.ini`. Re-run `run_build_probe.bat` when changing the target installation and do not update the profile unless the executable has been deliberately re-verified. See `docs/V0.3_BUILD_PROFILE.md` for the recorded values.
 
 A strict profile identifies the executable build; it does not by itself validate a game-tick hook.
 
@@ -145,7 +145,7 @@ These are new DustwireMP protocol definitions. They are not claimed to reproduce
 
 Read `ROADMAP.md`, `ARCHITECTURE.md`, and `docs/V0.3_BOOTSTRAP.md` before modifying the client bootstrap.
 
-Next: identify and document the exact supported RDR1 executable build, then implement a verified engine tick source and local actor discovery through `GameBridge`.
+Next: verify the RDR1 game-thread execution path for this exact build, then implement a failure-safe tick source and local actor discovery through `GameBridge`.
 
 ## Historical RDR1 build reference
 
@@ -161,4 +161,4 @@ text_fnv1a64=0xB213CBF3DEE9B6BF
 machine=AMD64
 ~~~
 
-Treat this as a candidate profile until the current executable is checked with `run_build_probe.bat`.
+The current executable has now been checked locally and matches this profile exactly, including the complete-file SHA-256.
