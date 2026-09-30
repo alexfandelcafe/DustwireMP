@@ -30,14 +30,27 @@ Do not mark this complete until the exact target RDR1 executable build is identi
 
 Tasks:
 
-- Capture the SHA-256 and PE fingerprint from the real target RDR.exe.
+- Capture the current fingerprint from the real target RDR.exe (the historical FrontierMP source already records a candidate build).
 - Decide the supported executable build/profile.
 - Add the exact fingerprint to a strict launcher profile.
-- Locate the game update/tick function using a verified signature or documented address for that exact build.
+- Resolve the game-thread entry using the historical scrThread::Wait dispatcher as a reference, then verify its behavior on the current executable.
 - Add Rdr1GameTickSource.
 - Verify the hook executes at the expected cadence.
 - Keep the hook failure-safe.
 - Only after the tick is verified, begin local actor discovery.
+
+## Historical reference discovered
+
+The previous FrontierMP branch contains a tested build candidate for RDR.exe 1.0.42.46611:
+
+- PE timestamp 0x673783F3
+- SizeOfImage 0x5A5EC600
+- .text RVA 0x1000
+- .text size 0x104A140
+- .text FNV-1a64 0xB213CBF3DEE9B6BF
+- AMD64
+
+It also contains a GameThreadDispatcher built around the scrThread::Wait native context. This is reference material for DustwireMP, not a claim that the current installation or hook is already validated.
 
 ## v0.4 — Two-player replication
 
