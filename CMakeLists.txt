@@ -142,6 +142,24 @@ target_link_libraries(
 )
 
 # Launcher responsible for locating/verifying RDR.exe and injecting the module.
+add_executable(DustwireMPBuildProbe
+    tools/build_probe/main.cpp
+    client/launcher/GameBuild.cpp
+)
+
+target_include_directories(
+    DustwireMPBuildProbe
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
+)
+
+target_link_libraries(
+    DustwireMPBuildProbe
+    PRIVATE
+        bcrypt
+        version
+        kernel32
+)
+
 add_executable(DustwireMPLauncher
     client/launcher/main.cpp
     client/launcher/ProcessLocator.cpp
