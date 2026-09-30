@@ -1,7 +1,16 @@
 @echo off
+setlocal
 cd /d "%~dp0"
-if not exist build\bin\Debug\DustwireMPServer.exe (
-  echo Server binary not found. Run build.bat first.
+
+set "EXE=build-vs2026\bin\Debug\DustwireMPServer.exe"
+
+if not exist "%EXE%" (
+  echo Server binary not found:
+  echo   %EXE%
+  echo.
+  echo Run build.bat first.
   exit /b 1
 )
-build\bin\Debug\DustwireMPServer.exe
+
+"%EXE%"
+exit /b %ERRORLEVEL%
