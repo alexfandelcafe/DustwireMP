@@ -443,7 +443,6 @@ GameBuildInfo GameBuild::Inspect(
                 continue;
             }
 
-            result.text_rva:
             break;
         }
     }
