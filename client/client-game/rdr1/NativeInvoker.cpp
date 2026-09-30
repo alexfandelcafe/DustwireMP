@@ -470,8 +470,16 @@ bool NativeInvoker::Initialize(
     if (!wait_handler ||
         !script_id_handler ||
         !script_name_handler) {
-        last_error_ =
-            "RDR1 native table missing game-thread handlers";
+        char buffer[192]{};
+        std::snprintf(
+            buffer,
+            sizeof(buffer),
+            "RDR1 native table missing game-thread handlers: "
+            "Wait=%s ScriptId=%s ScriptName=%s",
+            wait_handler ? "yes" : "no",
+            script_id_handler ? "yes" : "no",
+            script_name_handler ? "yes" : "no");
+        last_error_ = buffer;
         return false;
     }
 
