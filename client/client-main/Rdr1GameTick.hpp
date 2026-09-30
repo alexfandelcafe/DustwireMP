@@ -31,6 +31,7 @@ private:
 
     std::function<void()> callback_;
     std::shared_ptr<std::function<void()>> recurring_task_;
+    std::string last_init_error_;
 
     rdr1::NativeInvoker native_invoker_;
     rdr1::GameThreadDispatcher dispatcher_;
