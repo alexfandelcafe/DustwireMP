@@ -1,4 +1,4 @@
-#include "../client/launcher/GameBuild.hpp"
+#include "../../client/launcher/GameBuild.hpp"
 
 #include <Windows.h>
 
