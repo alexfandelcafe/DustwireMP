@@ -8,7 +8,7 @@
 
 #include "../client-game/GameBridge.hpp"
 #include "../client-networking/ClientNetwork.hpp"
-#include "GameTick.hpp"
+#include "Rdr1GameTick.hpp"
 
 namespace dustwire::client {
 
@@ -31,7 +31,7 @@ private:
 
     ClientNetwork network_;
     game::GameBridge game_;
-    BootstrapTickSource tick_source_;
+    Rdr1GameTickSource tick_source_;
     std::uint64_t tick_count_{0};
 };
 
