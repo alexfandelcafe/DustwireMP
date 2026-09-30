@@ -10,20 +10,34 @@ if not exist "%EXE%" (
   echo   %EXE%
   echo.
   echo Run build.bat first.
+  pause
   exit /b 1
 )
 
 echo DustwireMP launcher:
 echo   %EXE%
 echo.
-echo Launcher log:
-echo   %LOG%
-echo.
 
-"%EXE%"
+if "%~1"=="" (
+  echo Usage:
+  echo   run_launcher.bat "C:\path\to\RDR.exe"
+  echo.
+  echo You can also set DUSTWIRE_RDR1_PATH or game_path in config\launcher.ini.
+  echo.
+  "%EXE%"
+) else (
+  echo RDR.exe:
+  echo   %~1
+  echo.
+  "%EXE%" "%~1"
+)
+
 set "RC=%ERRORLEVEL%"
 
 echo.
 echo Launcher exit code: %RC%
-echo Log: %LOG%
+echo Log:
+echo   %LOG%
+echo.
+pause
 exit /b %RC%
