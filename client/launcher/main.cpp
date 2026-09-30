@@ -147,7 +147,7 @@ bool MatchesExpectedProfile(
 
 }
 
-int wmain() {
+int wmain(int argc, wchar_t** argv) {
     using namespace dustwire::launcher;
 
     const auto root =
@@ -174,8 +174,38 @@ int wmain() {
         LauncherConfigReader().Load(
             root / "config" / "launcher.ini");
 
-    const auto game_path =
-        Resolve(root, config.game_path);
+    std::filesystem::path configured_game_path;
+
+    if (argc >= 2 && argv[1] != nullptr && *argv[1] != L'\\0') {
+        configured_game_path = argv[1];
+        logger.Info(
+            "Game path supplied on command line: " +
+            configured_game_path.string());
+    } else if (!config.game_path.empty()) {
+        configured_game_path =
+            Resolve(root, config.game_path);
+    } else {
+        wchar_t environmentPath[32768]{};
+        const DWORD environmentLength =
+            GetEnvironmentVariableW(
+                L"DUSTWIRE_RDR1_PATH",
+                environmentPath,
+                static_cast<DWORD>(
+                    sizeof(environmentPath) /
+                    sizeof(environmentPath[0])));
+
+        if (environmentLength != 0 &&
+            environmentLength <
+                sizeof(environmentPath) /
+                    sizeof(environmentPath[0])) {
+            configured_game_path =
+                std::filesystem::path(environmentPath);
+            logger.Info(
+                "Game path supplied by DUSTWIRE_RDR1_PATH: " +
+                configured_game_path.string());
+        }
+    }
+
     const auto client_dll =
         Resolve(root, config.client_dll);
 
@@ -185,7 +215,9 @@ int wmain() {
 
     logger.Info(
         "Game path: " +
-        game_path.string());
+        (configured_game_path.empty()
+            ? std::string("<not configured>")
+            : configured_game_path.string()));
 
     logger.Info(
         "Client DLL: " +
@@ -200,18 +232,25 @@ int wmain() {
         logger.Info(
             "RDR.exe is not running; launching it");
 
-        if (!std::filesystem::exists(game_path)) {
+        if (configured_game_path.empty()) {
             logger.Error(
-                "configured game executable does not exist: " +
-                game_path.string());
+                "No RDR.exe path configured. Use run_launcher.bat "C:\\path\\to\\RDR.exe", "
+                "set game_path=... in config/launcher.ini, or set DUSTWIRE_RDR1_PATH.");
+            return 2;
+        }
+
+        if (!std::filesystem::exists(configured_game_path)) {
+            logger.Error(
+                "configured RDR.exe does not exist: " +
+                configured_game_path.string());
             return 2;
         }
 
         std::uint32_t launched_pid = 0;
 
         if (!locator.Launch(
-                game_path.wstring(),
-                game_path.parent_path().wstring(),
+                configured_game_path.wstring(),
+                configured_game_path.parent_path().wstring(),
                 launched_pid)) {
             logger.Error(
                 "failed to launch RDR.exe");
