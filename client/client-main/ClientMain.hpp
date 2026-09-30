@@ -3,6 +3,7 @@
 #include <Windows.h>
 
 #include <atomic>
+#include <cstdint>
 #include <filesystem>
 
 #include "../client-game/GameBridge.hpp"
@@ -31,6 +32,7 @@ private:
     ClientNetwork network_;
     game::GameBridge game_;
     BootstrapTickSource tick_source_;
+    std::uint64_t tick_count_{0};
 };
 
 }
