@@ -24,6 +24,21 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(enet)
 
+# ENet is third-party C code. Keep MSVC diagnostics from obscuring
+# project warnings with known legacy constructs in the pinned snapshot.
+if (MSVC)
+    target_compile_options(
+        enet
+        PRIVATE
+            /wd5287
+    )
+    target_compile_definitions(
+        enet
+        PRIVATE
+            _WINSOCK_DEPRECATED_NO_WARNINGS
+    )
+endif()
+
 add_library(dustwire_logging STATIC
     shared/logging/Logger.cpp
 )
@@ -144,6 +159,7 @@ target_link_libraries(
     DustwireMPLauncher
     PRIVATE
         dustwire_logging
+        bcrypt
         kernel32
 )
 
