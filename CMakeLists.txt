@@ -9,7 +9,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/bin/$<CONFIG>")
 
 include(FetchContent)
 
-# Pin ENet to a known upstream commit for reproducible configuration.
+# Pin ENet to an upstream commit for reproducible configuration.
 FetchContent_Declare(
     enet
     GIT_REPOSITORY https://github.com/lsalzman/enet.git
@@ -20,55 +20,85 @@ FetchContent_MakeAvailable(enet)
 
 add_library(dustwire_shared STATIC
     shared/net/EnetTransport.cpp
-    shared/net/UdpTransport.cpp
 )
-target_include_directories(dustwire_shared PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(dustwire_shared PUBLIC enet)
 
-if (WIN32)
-    target_link_libraries(dustwire_shared PUBLIC ws2_32 winmm)
-endif()
+target_include_directories(
+    dustwire_shared
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+    PRIVATE ${enet_SOURCE_DIR}/include
+)
+
+target_link_libraries(dustwire_shared PUBLIC enet)
 
 add_library(dustwire_client_networking STATIC
     client/client-networking/ClientNetwork.cpp
 )
-target_include_directories(dustwire_client_networking PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(dustwire_client_networking PUBLIC dustwire_shared)
+target_include_directories(
+    dustwire_client_networking
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+)
+target_link_libraries(
+    dustwire_client_networking
+    PUBLIC dustwire_shared
+)
 
 add_library(dustwire_client_game STATIC
     client/client-game/GameBridge.cpp
 )
-target_include_directories(dustwire_client_game PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(
+    dustwire_client_game
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 add_library(dustwire_client_cef STATIC
     client/client-cef/CEFBridge.cpp
 )
-target_include_directories(dustwire_client_cef PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+target_include_directories(
+    dustwire_client_cef
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+)
 
 add_executable(DustwireMPClient
     client/client-main/main.cpp
 )
-target_link_libraries(DustwireMPClient PRIVATE
-    dustwire_client_networking
-    dustwire_client_game
-    dustwire_client_cef
+target_link_libraries(
+    DustwireMPClient
+    PRIVATE
+        dustwire_client_networking
+        dustwire_client_game
+        dustwire_client_cef
 )
 
 add_library(dustwire_server_networking STATIC
     server/server-networking/ServerNetwork.cpp
 )
-target_include_directories(dustwire_server_networking PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
-target_link_libraries(dustwire_server_networking PUBLIC dustwire_shared)
+target_include_directories(
+    dustwire_server_networking
+    PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}
+)
+target_link_libraries(
+    dustwire_server_networking
+    PUBLIC dustwire_shared
+)
 
 add_executable(DustwireMPServer
     server/server-main/main.cpp
 )
-target_link_libraries(DustwireMPServer PRIVATE dustwire_server_networking)
+target_link_libraries(
+    DustwireMPServer
+    PRIVATE dustwire_server_networking
+)
 
 enable_testing()
 
 add_executable(dustwire_protocol_smoke
     tests/protocol_smoke.cpp
 )
-target_include_directories(dustwire_protocol_smoke PRIVATE ${CMAKE_CURRENT_SOURCE_DIR})
-add_test(NAME dustwire_protocol_smoke COMMAND dustwire_protocol_smoke)
+target_include_directories(
+    dustwire_protocol_smoke
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
+)
+add_test(
+    NAME dustwire_protocol_smoke
+    COMMAND dustwire_protocol_smoke
+)
