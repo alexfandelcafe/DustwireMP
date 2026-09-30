@@ -20,7 +20,9 @@ Completed foundations:
 - ENet peer disconnect detection.
 - Client ping measurement.
 - Protocol smoke test.
+- ENet client/server loopback test.
 - Reproducible ENet dependency pin.
+- Windows build script with configure/build/test logging.
 
 Current packet set:
 
@@ -36,6 +38,8 @@ Transport rules:
 - Channel 1 is used for low-latency messages.
 - Gameplay code does not include ENet headers.
 - The shared packet format stays above the transport.
+- `EnetTransport` owns ENet peer/host lifecycle.
+- `ClientNetwork` owns protocol-level connection state.
 
 The exact original RDRMP wire layout is a separate reverse-engineering task and is not part of the DustwireMP protocol.
 
@@ -55,11 +59,33 @@ Work items:
 - First GameBridge implementation.
 - Configuration for the RDR1 executable path.
 
-Do not hard-code addresses from an unrelated game build. Each memory signature/address must be verified against the targeted executable before shipping it.
+Suggested initial client project split:
+
+```text
+client/
+  launcher/
+    LauncherMain.cpp
+    ProcessLocator.cpp
+    Injector.cpp
+    GameBuild.cpp
+  client-main/
+    ClientMain.cpp
+    ClientMain.hpp
+  client-game/
+    GameBridge.hpp
+    Rdr1GameBridge.cpp
+    GameTick.hpp
+  client-networking/
+    ClientNetwork.hpp/.cpp
+```
 
 Suggested client flow:
 
 `DustwireMPLauncher -> RDR.exe -> client-main.dll -> ClientMain::Initialize -> GameBridge -> ClientNetwork -> Tick`
+
+The first v0.3 target should be a successful DLL load + one stable tick, not multiplayer replication.
+
+Do not hard-code addresses from an unrelated game build. Each memory signature/address must be verified against the targeted executable before shipping it.
 
 ## v0.4 — Two-player replication
 
@@ -73,6 +99,7 @@ Server authority:
 - Broadcast spawn/despawn.
 - Broadcast transforms.
 - Reject malformed or oversized packets.
+- Maintain a server-side player state table.
 
 Client:
 
@@ -199,18 +226,18 @@ Master server responsibilities:
 
 When continuing the project, use this order:
 
-1. Read `README.md` and this file.
-2. Inspect the current client/server/network code in GitHub.
-3. Do not reintroduce direct ENet calls into gameplay classes.
-4. Keep protocol definitions in `shared/protocol/`.
-5. Keep transport implementations in `shared/net/`.
+1. Read `README.md`, `ROADMAP.md`, and `ARCHITECTURE.md`.
+2. Inspect the current GitHub tree and commit state before changing interfaces.
+3. Keep protocol definitions in `shared/protocol/`.
+4. Keep transport implementations in `shared/net/`.
+5. Do not reintroduce direct ENet calls into gameplay classes.
 6. For RDR1 integration, verify the exact game executable/build before using signatures or memory addresses.
-7. Update this roadmap after completing a milestone.
+7. Update the roadmap after completing a milestone.
 
 ## Next chat starting point
 
-Start from v0.2 and implement **v0.3**:
+Implement **v0.3**:
 
-`launcher -> RDR.exe discovery -> DLL injection -> client-main.dll -> stable game tick -> GameBridge stub`
+`launcher -> RDR.exe discovery -> version check -> DLL injection -> client-main.dll -> stable game tick -> GameBridge stub`
 
-Then connect `ClientNetwork` to that tick without moving ENet code into GameBridge.
+Then connect `ClientNetwork::Tick()` to that game tick without moving ENet code into GameBridge.
