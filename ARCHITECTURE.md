@@ -35,6 +35,47 @@ client-main.dll
                                     ServerGame
 ```
 
+## Client bootstrap
+
+v0.3 now has a real Windows launcher and an injected client module:
+
+```text
+DustwireMPLauncher.exe
+        |
+        +--> ProcessLocator
+        |       +--> find RDR.exe
+        |       +--> launch RDR.exe when absent
+        |
+        +--> GameBuild
+        |       +--> PE validation
+        |       +--> x64 validation
+        |
+        +--> Injector
+                +--> OpenProcess
+                +--> VirtualAllocEx
+                +--> WriteProcessMemory
+                +--> CreateRemoteThread(LoadLibraryW)
+                                |
+                                v
+                    DustwireMPClientModule.dll
+                                |
+                                +--> DllMain
+                                +--> bootstrap thread
+                                +--> ClientMain
+                                      +--> Logger
+                                      +--> GameBridge
+                                      +--> ClientNetwork
+                                      +--> BootstrapTickSource
+```
+
+The injector is only a bootstrap mechanism. The module is built x64 together with the launcher.
+
+## Important v0.3 limitation
+
+`BootstrapTickSource` is a temporary worker loop. It is not an RDR1 frame/update hook.
+
+No RDR1 memory reads or writes should be added to that worker. The real game tick must be implemented only after the exact target RDR1 executable build and a verified update-function signature are documented.
+
 ## Ownership rules
 
 ### `client/client-cef`
@@ -49,7 +90,7 @@ It must not:
 
 ### `client/client-networking`
 
-Owns connection state and packet dispatch for the client.
+Owns client connection state and packet dispatch.
 
 It can:
 - call the shared transport;
@@ -69,7 +110,7 @@ Current implementation:
 - `EnetTransport`.
 
 Legacy:
-- `UdpTransport` remains in the source tree as the v0.1 reference implementation but is no longer part of the v0.2 CMake target.
+- `UdpTransport` remains in the source tree as the v0.1 reference implementation but is no longer part of the v0.3 CMake target.
 
 ### `shared/protocol`
 
@@ -84,7 +125,7 @@ u32 sequence
 payload...
 ```
 
-The protocol is independent of ENet. Replacing ENet later must not require changing packet encoders.
+Protocol code is independent of ENet.
 
 ### `server/server-networking`
 
@@ -106,14 +147,12 @@ ENet types must not leak into this module.
 
 ## ENet channels
 
-DustwireMP currently reserves two channels:
-
 | Channel | Intended use |
 |---:|---|
 | 0 | Reliable/control messages |
 | 1 | Low-latency messages |
 
-Reliability is selected per packet. Channel selection is part of the transport call, not the application protocol header.
+Reliability is selected per packet. Channel selection is a transport concern, not part of the application packet header.
 
 ## Current handshake
 
@@ -131,30 +170,7 @@ Client                                Server
   |          gameplay                 |
 ```
 
-HELLO contains:
-- protocol version;
-- client version;
-- player name.
-
-WELCOME contains:
-- server-assigned player ID;
-- server name.
-
-## Current network test
-
-The v0.2 executable pair is intended to be tested as:
-
-1. Start `DustwireMPServer.exe`.
-2. Start `DustwireMPClient.exe`.
-3. Issue `connect` in the client console.
-4. Server should log HELLO and a player ID.
-5. Client should log WELCOME and its player ID.
-
-Future transport smoke tests should exercise the actual client/server ENet loopback.
-
 ## RDR1 integration boundary
-
-The future v0.3 implementation must preserve this boundary:
 
 ```text
 ClientNetwork
@@ -171,11 +187,29 @@ RDR1 engine / natives / memory hooks
 
 Only the final bridge talks to RDR1-specific addresses and engine objects.
 
-Before implementing any hook:
+Before implementing a hook:
 - identify the exact target RDR1 executable build;
+- record its PE fingerprint;
 - document the signature/address source;
-- add a verification check;
+- add a runtime verification check;
 - fail safely when the expected code/data is absent.
+
+## Runtime files
+
+```text
+build-vs2026/bin/Debug/
+  DustwireMPLauncher.exe
+  DustwireMPClient.exe
+  DustwireMPClientModule.dll
+  config/launcher.ini
+```
+
+Logs:
+
+```text
+logs/launcher.log
+logs/client-main.log
+```
 
 ## Continuation rule
 
@@ -183,8 +217,9 @@ For future chats, read:
 - `README.md`
 - `ROADMAP.md`
 - `ARCHITECTURE.md`
+- `docs/V0.3_BOOTSTRAP.md`
+- `docs/research/RDRMP_COMPAT_NOTES.md` when compatibility questions arise.
 
-Then inspect the current GitHub tree before changing interfaces.
+Then inspect the current GitHub tree and commit state before changing interfaces.
 
-The next implementation milestone is v0.3:
-`launcher -> RDR.exe discovery -> DLL injection -> client-main.dll -> stable game tick -> GameBridge`.
+Next implementation milestone: replace `BootstrapTickSource` with a verified RDR1 game tick source for the exact supported executable build, then wire local actor discovery through `GameBridge`.
