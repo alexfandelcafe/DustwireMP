@@ -78,8 +78,7 @@ void Logger::Log(
         "[" + Timestamp() + "] [" +
         LevelName(level) + "] [" +
         component_ + "] " +
-        message + "
-";
+        message + "\n";
 
     OutputDebugStringA(line.c_str());
 
