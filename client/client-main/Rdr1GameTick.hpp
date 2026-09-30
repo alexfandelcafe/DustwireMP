@@ -4,6 +4,7 @@
 
 #include <atomic>
 #include <functional>
+#include <memory>
 #include <thread>
 
 #include "../client-game/rdr1/GameThreadDispatcher.hpp"
@@ -29,6 +30,7 @@ private:
     std::thread worker_;
 
     std::function<void()> callback_;
+    std::shared_ptr<std::function<void()>> recurring_task_;
 
     rdr1::NativeInvoker native_invoker_;
     rdr1::GameThreadDispatcher dispatcher_;
