@@ -18,10 +18,10 @@ v0.3 adds the real Windows bootstrap path:
 - `Injector` for loading `DustwireMPClientModule.dll` into the target process.
 - `client-main.dll` bootstrap lifecycle.
 - injected-process logging.
-- temporary bootstrap tick source.
+- RDR1 game-thread tick source based on the historical `scrThread::Wait` dispatcher.
 - Visual Studio 18 2026 / x64 build and CI.
 
-Important: the v0.3 tick source is a temporary worker loop. It is not the final RDR1 engine tick hook.
+Important: the client now uses the RDR1 `scrThread::Wait` game-thread path for the verified `1.0.42.46611` build.
 
 ## v0.2 networking retained
 
@@ -145,7 +145,7 @@ These are new DustwireMP protocol definitions. They are not claimed to reproduce
 
 Read `ROADMAP.md`, `ARCHITECTURE.md`, and `docs/V0.3_BOOTSTRAP.md` before modifying the client bootstrap.
 
-Next: verify the RDR1 game-thread execution path for this exact build, then implement a failure-safe tick source and local actor discovery through `GameBridge`.
+Next: use the game-thread tick to implement local actor discovery through `GameBridge`.
 
 ## Historical RDR1 build reference
 
