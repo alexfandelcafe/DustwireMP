@@ -88,6 +88,9 @@ target_link_libraries(
 
 add_library(dustwire_client_game STATIC
     client/client-game/GameBridge.cpp
+    client/client-game/rdr1/PatternScanner.cpp
+    client/client-game/rdr1/NativeInvoker.cpp
+    client/client-game/rdr1/GameThreadDispatcher.cpp
 )
 target_include_directories(
     dustwire_client_game
@@ -119,6 +122,7 @@ add_library(DustwireMPClientModule SHARED
     client/client-main/dllmain.cpp
     client/client-main/ClientMain.cpp
     client/client-main/GameTick.cpp
+    client/client-main/Rdr1GameTick.cpp
 )
 
 set_target_properties(
