@@ -8,6 +8,7 @@
 
 struct _ENetHost;
 struct _ENetPeer;
+struct _ENetAddress;
 
 namespace dustwire::net {
 
@@ -56,7 +57,8 @@ private:
         std::uint8_t channel);
 
     static std::string EndpointKey(const Endpoint& endpoint);
-    static Endpoint EndpointFromAddress(const struct _ENetAddress& address);
+    static Endpoint EndpointFromAddress(
+        const ::_ENetAddress& address);
 
     std::uint16_t local_port_{};
     std::size_t max_peers_{1};
