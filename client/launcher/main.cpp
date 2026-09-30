@@ -234,7 +234,7 @@ int wmain(int argc, wchar_t** argv) {
 
         if (configured_game_path.empty()) {
             logger.Error(
-                "No RDR.exe path configured. Use run_launcher.bat "C:\\path\\to\\RDR.exe", "
+                "No RDR.exe path configured. Use run_launcher.bat \"C:\\path\\to\\RDR.exe\", "
                 "set game_path=... in config/launcher.ini, or set DUSTWIRE_RDR1_PATH.");
             return 2;
         }
