@@ -363,8 +363,13 @@ bool NativeInvoker::Initialize(
                 continue;
             }
 
-            // FrontierMP treated the sentinel as diagnostic only. It is
-            // not required for accepting the initialized native table.
+            // The registration table itself is the lifecycle-independent
+            // prerequisite. Gameplay natives such as GET_GAME_STATE may not be
+            // populated yet during the intro/menu bootstrap, so do not gate
+            // registration-storage resolution on them.
+            native_registration_storage_ =
+                storage;
+
             const auto sentinel =
                 FindHandlerInTable(
                     table,
@@ -383,11 +388,6 @@ bool NativeInvoker::Initialize(
                     modulator,
                     kGetGameState);
 
-            if (!get_position &&
-                !get_game_state) {
-                continue;
-            }
-
             char diagnostics[320]{};
             std::snprintf(
                 diagnostics,
@@ -404,8 +404,10 @@ bool NativeInvoker::Initialize(
             OutputDebugStringA(diagnostics);
             OutputDebugStringA("\n");
 
-            native_registration_storage_ =
-                storage;
+            registration_storage_resolved_ =
+                true;
+            last_error_.clear();
+            break;
             registration_storage_resolved_ =
                 true;
 
@@ -427,8 +429,7 @@ bool NativeInvoker::Initialize(
 
         if (!registration_storage_resolved_) {
             last_error_ =
-                "RDR1 native registration table not ready; "
-                "no candidate exposed GET_POSITION or GET_GAME_STATE";
+                "RDR1 native registration table not initialized yet";
             return false;
         }
     }
