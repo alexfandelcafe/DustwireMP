@@ -2,31 +2,90 @@
 
 DustwireMP is a clean-room multiplayer framework for building a Red Dead Redemption 1 multiplayer client/server stack.
 
-The repository is intentionally layered:
+Architecture:
 
-`launcher -> client-main -> CEF bridge -> client networking -> ENet -> server networking -> server game`
+`launcher -> RDR.exe -> client-main.dll -> CEF bridge / ClientNetwork / GameBridge -> ENet -> server`
 
 CEF is the UI layer. ENet is the transport layer. The shared protocol sits above ENet and is independent of both the browser and the game engine.
 
-## Current version: v0.2
+## Current version: v0.3
 
-The v0.2 milestone replaces the v0.1 WinSock handshake transport with ENet while preserving the DustwireMP packet format.
+v0.3 adds the real Windows bootstrap path:
 
-Implemented now:
+- `DustwireMPLauncher.exe`.
+- `ProcessLocator` for finding or launching `RDR.exe`.
+- `GameBuild` for PE/x64 validation.
+- `Injector` for loading `DustwireMPClientModule.dll` into the target process.
+- `client-main.dll` bootstrap lifecycle.
+- injected-process logging.
+- temporary bootstrap tick source.
+- Visual Studio 18 2026 / x64 build and CI.
+
+Important: the v0.3 tick source is a temporary worker loop. It is not the final RDR1 engine tick hook.
+
+## v0.2 networking retained
 
 - ENet client/server transport.
-- Two transport channels:
-  - channel 0: reliable/control traffic.
-  - channel 1: low-latency traffic.
-- HELLO/WELCOME/READY handshake.
-- Server-side player ID allocation with a 32-peer default.
-- ENet disconnect detection.
-- Client ping measurement through PING/PONG.
-- Protocol smoke test.
-- Real ENet client/server loopback test.
-- CMake FetchContent dependency pinned to a known upstream ENet commit.
-- Visual Studio 18 2026 x64 build script.
-- Persistent roadmap in `ROADMAP.md`.
+- channel 0: reliable/control traffic.
+- channel 1: low-latency traffic.
+- HELLO/WELCOME/READY.
+- player ID allocation.
+- disconnect detection.
+- PING/PONG latency test.
+- protocol smoke test.
+- ENet loopback test.
+
+## Build
+
+Run:
+
+```bat
+build.bat
+```
+
+The local builder uses the `Visual Studio 18 2026` generator and x64 target. CMake added this generator in version 4.2. citeturn662304search1turn662304search2
+
+Build output:
+
+```text
+build-vs2026/bin/Debug/
+  DustwireMPLauncher.exe
+  DustwireMPClient.exe
+  DustwireMPClientModule.dll
+  config/launcher.ini
+```
+
+Use `run_launcher.bat` for the RDR1 bootstrap.
+
+Use `run_server.bat` and `run_client.bat` for the standalone networking test pair.
+
+The CI job uses GitHub's `windows-2025-vs2026` image and a CMake 4.4.3 download so the generator matches the local VS 18 build. citeturn326047search0turn326047search3turn662304search4
+
+## Launcher configuration
+
+Edit:
+
+`build-vs2026/bin/Debug/config/launcher.ini`
+
+Default:
+
+```ini
+game_path=RDR.exe
+client_dll=DustwireMPClientModule.dll
+target_process=RDR.exe
+wait_for_game_ms=30000
+require_x64=true
+```
+
+Relative paths are resolved from the launcher executable directory.
+
+## Launcher logs
+
+```text
+logs/launcher.log
+logs/client-main.log
+logs/build_*.log
+```
 
 ## Protocol
 
@@ -40,59 +99,14 @@ Current DustwireMP protocol:
 | `0x0004` | Client -> Server | PING |
 | `0x0005` | Server -> Client | PONG |
 
-The wire format is:
-
-`PacketHeader + opcode payload`
-
-where the header is encoded as:
+Wire header:
 
 `u8 version + u16 opcode + u32 sequence`
 
-All integer fields in the shared codec are little-endian.
-
 These are new DustwireMP protocol definitions. They are not claimed to reproduce the original RDRMP wire format.
-
-## Build
-
-The local builder targets **Visual Studio 18 2026, x64**:
-
-```bat
-build.bat
-```
-
-CMake's `Visual Studio 18 2026` generator is available starting with CMake 4.2, so this project requires CMake 4.2 or newer. citeturn231063search0turn231063search5
-
-The builder uses the isolated directory `build-vs2026/` so an old VS 17/2022 CMake cache cannot conflict with the VS 18 generator.
-
-The build script:
-
-1. Creates `build-vs2026/` and `logs/`.
-2. Configures Visual Studio 18 2026 x64.
-3. Lets CMake fetch the pinned ENet dependency.
-4. Builds Debug.
-5. Runs all CTest tests.
-6. Stores stdout/stderr in a timestamped log.
-
-The first configuration requires network access to fetch ENet unless the CMake dependency has already been cached locally.
-
-## Run
-
-Start the server:
-
-```bat
-run_server.bat
-```
-
-Then start the current console client:
-
-```bat
-run_client.bat
-```
-
-The v0.2 client is still a console executable. The CEF bridge and web UI are preparation for the real in-game browser integration planned for v0.7 of the roadmap.
 
 ## Development route
 
-Read `ROADMAP.md` and `ARCHITECTURE.md` before changing architecture. Each milestone isolates one layer so we can test networking before touching RDR1 memory hooks.
+Read `ROADMAP.md`, `ARCHITECTURE.md`, and `docs/V0.3_BOOTSTRAP.md` before modifying the client bootstrap.
 
-Next major milestone: v0.3 RDR1 launcher/injection and a stable game tick, followed by v0.4 two-player replication.
+Next: identify and document the exact supported RDR1 executable build, then implement a verified engine tick source and local actor discovery through `GameBridge`.
