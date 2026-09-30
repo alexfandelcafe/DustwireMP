@@ -1,6 +1,7 @@
 #include <Windows.h>
 
 #include <filesystem>
+#include <iomanip>
 #include <sstream>
 
 #include "../../shared/logging/Logger.hpp"
@@ -19,7 +20,8 @@ std::filesystem::path ExecutableDirectory() {
             nullptr,
             path,
             static_cast<DWORD>(
-                sizeof(path) / sizeof(path[0])));
+                sizeof(path) /
+                sizeof(path[0])));
 
     if (length == 0 ||
         length >= sizeof(path) / sizeof(path[0])) {
@@ -27,6 +29,20 @@ std::filesystem::path ExecutableDirectory() {
     }
 
     return std::filesystem::path(path).parent_path();
+}
+
+std::filesystem::path LogDirectory(
+    const std::filesystem::path& executableDirectory) {
+
+    const auto workingDirectory =
+        std::filesystem::current_path();
+
+    if (std::filesystem::exists(
+            workingDirectory / "build-vs2026")) {
+        return workingDirectory / "logs";
+    }
+
+    return executableDirectory / "logs";
 }
 
 std::filesystem::path Resolve(
@@ -38,7 +54,9 @@ std::filesystem::path Resolve(
         : base / path;
 }
 
-std::string Narrow(const std::wstring& value) {
+std::string Narrow(
+    const std::wstring& value) {
+
     if (value.empty()) {
         return {};
     }
@@ -112,10 +130,14 @@ bool MatchesExpectedProfile(
 int wmain() {
     using namespace dustwire::launcher;
 
-    const auto root = ExecutableDirectory();
+    const auto root =
+        ExecutableDirectory();
+
+    const auto logDirectory =
+        LogDirectory(root);
 
     dustwire::logging::Logger::Instance().Initialize(
-        root / "logs",
+        logDirectory,
         "launcher");
 
     auto& logger =
@@ -123,6 +145,10 @@ int wmain() {
 
     logger.Info(
         "DustwireMPLauncher v0.3 starting");
+
+    logger.Info(
+        "Launcher log directory: " +
+        logDirectory.string());
 
     const auto config =
         LauncherConfigReader().Load(
@@ -133,16 +159,26 @@ int wmain() {
     const auto client_dll =
         Resolve(root, config.client_dll);
 
-    logger.Info("Launcher root: " + root.string());
-    logger.Info("Game path: " + game_path.string());
-    logger.Info("Client DLL: " + client_dll.string());
+    logger.Info(
+        "Launcher root: " +
+        root.string());
+
+    logger.Info(
+        "Game path: " +
+        game_path.string());
+
+    logger.Info(
+        "Client DLL: " +
+        client_dll.string());
 
     ProcessLocator locator;
     auto game_process =
-        locator.FindFirstByName(config.target_process);
+        locator.FindFirstByName(
+            config.target_process);
 
     if (game_process.pid == 0) {
-        logger.Info("RDR.exe is not running; launching it");
+        logger.Info(
+            "RDR.exe is not running; launching it");
 
         if (!std::filesystem::exists(game_path)) {
             logger.Error(
@@ -157,20 +193,23 @@ int wmain() {
                 game_path.wstring(),
                 game_path.parent_path().wstring(),
                 launched_pid)) {
-            logger.Error("failed to launch RDR.exe");
+            logger.Error(
+                "failed to launch RDR.exe");
             return 3;
         }
 
         std::ostringstream launched;
         launched << "RDR.exe launched with pid="
                  << launched_pid;
+
         logger.Info(launched.str());
 
         if (!locator.WaitForProcess(
                 config.target_process,
                 config.wait_for_game_ms,
                 game_process)) {
-            logger.Error("timed out waiting for RDR.exe");
+            logger.Error(
+                "timed out waiting for RDR.exe");
             return 4;
         }
     }
@@ -180,11 +219,13 @@ int wmain() {
            << game_process.pid
            << " image="
            << Narrow(game_process.image_path);
+
     logger.Info(target.str());
 
     GameBuild build;
     const auto build_info =
-        build.Inspect(game_process.image_path);
+        build.Inspect(
+            game_process.image_path);
 
     if (!build_info.valid_pe) {
         logger.Error(
@@ -199,16 +240,28 @@ int wmain() {
                 << " x64="
                 << std::dec
                 << (build_info.is_64_bit ? 1 : 0)
-                << " timestamp="
+                << " timestamp=0x"
+                << std::hex
                 << build_info.timestamp
                 << " image_size=0x"
-                << std::hex
                 << build_info.image_size
                 << " file_size="
                 << std::dec
                 << build_info.file_size
+                << " text_rva=0x"
+                << std::hex
+                << build_info.text_rva
+                << " text_size=0x"
+                << build_info.text_size
+                << " text_fnv1a64=0x"
+                << build_info.text_fnv1a64
+                << " file_version="
+                << (build_info.file_version.empty()
+                    ? "<unknown>"
+                    : build_info.file_version)
                 << " sha256="
                 << build_info.sha256;
+
     logger.Info(fingerprint.str());
 
     if (config.require_x64) {
@@ -285,5 +338,6 @@ int wmain() {
 
     logger.Info(
         "DustwireMPLauncher finished successfully");
+
     return 0;
 }
