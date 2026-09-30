@@ -13,6 +13,7 @@ namespace {
 
 std::filesystem::path ExecutableDirectory() {
     wchar_t path[MAX_PATH * 4]{};
+
     const DWORD length =
         GetModuleFileNameW(
             nullptr,
@@ -38,7 +39,9 @@ std::filesystem::path Resolve(
 }
 
 std::string Narrow(const std::wstring& value) {
-    if (value.empty()) return {};
+    if (value.empty()) {
+        return {};
+    }
 
     const int length =
         WideCharToMultiByte(
@@ -51,7 +54,9 @@ std::string Narrow(const std::wstring& value) {
             nullptr,
             nullptr);
 
-    if (length <= 0) return {};
+    if (length <= 0) {
+        return {};
+    }
 
     std::string result(
         static_cast<std::size_t>(length),
@@ -91,6 +96,11 @@ bool MatchesExpectedProfile(
 
     if (config.expected_file_size != 0 &&
         config.expected_file_size != build.file_size) {
+        return false;
+    }
+
+    if (!config.expected_sha256.empty() &&
+        config.expected_sha256 != build.sha256) {
         return false;
     }
 
@@ -152,7 +162,8 @@ int wmain() {
         }
 
         std::ostringstream launched;
-        launched << "RDR.exe launched with pid=" << launched_pid;
+        launched << "RDR.exe launched with pid="
+                 << launched_pid;
         logger.Info(launched.str());
 
         if (!locator.WaitForProcess(
@@ -165,8 +176,10 @@ int wmain() {
     }
 
     std::ostringstream target;
-    target << "Target pid=" << game_process.pid
-           << " image=" << Narrow(game_process.image_path);
+    target << "Target pid="
+           << game_process.pid
+           << " image="
+           << Narrow(game_process.image_path);
     logger.Info(target.str());
 
     GameBuild build;
@@ -174,27 +187,39 @@ int wmain() {
         build.Inspect(game_process.image_path);
 
     if (!build_info.valid_pe) {
-        logger.Error("target executable has an invalid PE image");
+        logger.Error(
+            "target executable has an invalid PE image");
         return 5;
     }
 
     std::ostringstream fingerprint;
     fingerprint << "PE machine=0x"
-                << std::hex << build_info.machine
-                << " x64=" << std::dec
+                << std::hex
+                << build_info.machine
+                << " x64="
+                << std::dec
                 << (build_info.is_64_bit ? 1 : 0)
-                << " timestamp=" << build_info.timestamp
-                << " image_size=0x" << std::hex
+                << " timestamp="
+                << build_info.timestamp
+                << " image_size=0x"
+                << std::hex
                 << build_info.image_size
-                << " file_size=" << std::dec
-                << build_info.file_size;
+                << " file_size="
+                << std::dec
+                << build_info.file_size
+                << " sha256="
+                << build_info.sha256;
     logger.Info(fingerprint.str());
 
     if (config.require_x64) {
         std::wstring reason;
-        if (!build.IsSupported(build_info, reason)) {
+
+        if (!build.IsSupported(
+                build_info,
+                reason)) {
             logger.Error(
-                "unsupported architecture: " + Narrow(reason));
+                "unsupported architecture: " +
+                Narrow(reason));
             return 6;
         }
     }
@@ -203,15 +228,20 @@ int wmain() {
         config.expected_machine != 0 ||
         config.expected_timestamp != 0 ||
         config.expected_image_size != 0 ||
-        config.expected_file_size != 0;
+        config.expected_file_size != 0 ||
+        !config.expected_sha256.empty();
 
     if (has_exact_profile) {
-        if (!MatchesExpectedProfile(config, build_info)) {
+        if (!MatchesExpectedProfile(
+                config,
+                build_info)) {
             logger.Error(
                 "RDR.exe does not match the configured exact build profile");
             return 7;
         }
-        logger.Info("exact RDR1 build profile matched");
+
+        logger.Info(
+            "exact RDR1 build profile matched");
     } else {
         logger.Warning(
             "no exact RDR1 build profile configured; x64-only bootstrap check is active");
@@ -224,7 +254,8 @@ int wmain() {
         return 8;
     }
 
-    logger.Info("injecting DustwireMPClientModule.dll");
+    logger.Info(
+        "injecting DustwireMPClientModule.dll");
 
     const auto result =
         Injector().Inject(
@@ -233,7 +264,8 @@ int wmain() {
 
     if (!result.success) {
         logger.Error(
-            "DLL injection failed: " + result.error);
+            "DLL injection failed: " +
+            result.error);
         return 9;
     }
 
@@ -242,11 +274,16 @@ int wmain() {
             "client-main DLL already loaded; injection skipped");
     } else {
         std::ostringstream injected;
-        injected << "DLL injection succeeded; remote module handle=0x"
-                 << std::hex << result.remote_exit_code;
+
+        injected
+            << "DLL injection succeeded; remote module handle=0x"
+            << std::hex
+            << result.remote_exit_code;
+
         logger.Info(injected.str());
     }
 
-    logger.Info("DustwireMPLauncher finished successfully");
+    logger.Info(
+        "DustwireMPLauncher finished successfully");
     return 0;
 }
