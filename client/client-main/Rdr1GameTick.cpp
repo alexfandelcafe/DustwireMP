@@ -5,6 +5,7 @@
 #include <chrono>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>
 #include <memory>
 #include <string>
 
@@ -134,6 +135,7 @@ void Rdr1GameTickSource::Stop() {
     }
 
     ready_.store(false, std::memory_order_release);
+    recurring_task_.reset();
     callback_ = {};
 }
 
@@ -161,8 +163,7 @@ bool Rdr1GameTickSource::InitializeRdr1() {
     }
 
     ready_.store(
-        dispatcher_.Attached() &&
-        dispatcher_.GameThreadKnown() == false,
+        dispatcher_.Attached(),
         std::memory_order_release);
 
     return true;
@@ -174,14 +175,15 @@ void Rdr1GameTickSource::Bootstrap() {
 
         if (!dispatcher_.Attached()) {
             if (InitializeRdr1()) {
-                const auto recurring =
-                    std::make_shared<
-                        std::function<void()>>();
+                recurring_task_ =
+                    std::make_shared<std::function<void()>>();
 
-                *recurring =
-                    [this, recurring]() {
-                        if (!running_.load(
-                                std::memory_order_acquire)) {
+                const auto weak_task =
+                    std::weak_ptr<std::function<void()>>(recurring_task_);
+
+                *recurring_task_ =
+                    [this, weak_task]() {
+                        if (!running_.load(std::memory_order_acquire)) {
                             return;
                         }
 
@@ -189,11 +191,16 @@ void Rdr1GameTickSource::Bootstrap() {
                             callback_();
                         }
 
-                        if (running_.load(
-                                std::memory_order_acquire) &&
+                        if (running_.load(std::memory_order_acquire) &&
                             dispatcher_.Attached()) {
 
-                            std::string error;
+                            if (const auto task = weak_task.lock()) {
+                                std::string error;
+                                dispatcher_.Submit(*task, error);
+                            }
+                        }
+                    };
+                std::string error;
                             dispatcher_.Submit(
                                 *recurring,
                                 error);
