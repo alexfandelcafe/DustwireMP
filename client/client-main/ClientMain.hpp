@@ -1,8 +1,36 @@
 #pragma once
+
+#include <Windows.h>
+
+#include <atomic>
+#include <filesystem>
+
+#include "../client-game/GameBridge.hpp"
+#include "../client-networking/ClientNetwork.hpp"
+#include "GameTick.hpp"
+
 namespace dustwire::client {
+
 class ClientMain {
 public:
-    bool Initialize() { return true; }
-    void Tick() {}
+    bool Initialize(HMODULE module);
+    void Stop();
+
+    bool IsInitialized() const {
+        return initialized_.load();
+    }
+
+private:
+    void Tick();
+
+    std::atomic_bool initialized_{false};
+    std::atomic_bool stopping_{false};
+
+    std::filesystem::path module_directory_;
+
+    ClientNetwork network_;
+    game::GameBridge game_;
+    BootstrapTickSource tick_source_;
 };
+
 }
