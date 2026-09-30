@@ -7,7 +7,7 @@
 namespace dustwire::launcher {
 
 struct LauncherConfig {
-    std::filesystem::path game_path{"RDR.exe"};
+    std::filesystem::path game_path{};
     std::filesystem::path client_dll{
         "DustwireMPClientModule.dll"
     };
