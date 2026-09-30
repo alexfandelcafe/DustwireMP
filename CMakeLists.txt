@@ -30,6 +30,10 @@ target_include_directories(
 
 target_link_libraries(dustwire_shared PUBLIC enet)
 
+if (WIN32)
+    target_link_libraries(dustwire_shared PUBLIC ws2_32 winmm)
+endif()
+
 add_library(dustwire_client_networking STATIC
     client/client-networking/ClientNetwork.cpp
 )
@@ -101,4 +105,20 @@ target_include_directories(
 add_test(
     NAME dustwire_protocol_smoke
     COMMAND dustwire_protocol_smoke
+)
+
+add_executable(dustwire_enet_loopback
+    tests/enet_loopback.cpp
+)
+target_include_directories(
+    dustwire_enet_loopback
+    PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}
+)
+target_link_libraries(
+    dustwire_enet_loopback
+    PRIVATE dustwire_shared
+)
+add_test(
+    NAME dustwire_enet_loopback
+    COMMAND dustwire_enet_loopback
 )
