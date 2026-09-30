@@ -24,6 +24,10 @@ struct LauncherConfig {
     std::uint32_t expected_image_size{0};
     std::uint64_t expected_file_size{0};
     std::uint16_t expected_machine{0};
+    std::uint32_t expected_text_rva{0};
+    std::uint32_t expected_text_size{0};
+    std::uint64_t expected_text_fnv1a64{0};
+    std::string expected_file_version;
     std::string expected_sha256;
 };
 
