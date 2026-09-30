@@ -2,6 +2,7 @@
 
 #include <filesystem>
 #include <sstream>
+#include <Windows.h>
 
 #include "../../shared/logging/Logger.hpp"
 
@@ -106,6 +107,23 @@ void ClientMain::Stop() {
 void ClientMain::Tick() {
     if (stopping_.load()) {
         return;
+    }
+
+    ++tick_count_;
+
+    if (tick_count_ == 1 ||
+        (tick_count_ % 120) == 0) {
+
+        std::ostringstream tick;
+        tick << "bootstrap tick count="
+             << tick_count_
+             << " tid="
+             << GetCurrentThreadId()
+             << " pid="
+             << GetCurrentProcessId();
+
+        logging::Logger::Instance().Info(
+            tick.str());
     }
 
     network_.Tick();
