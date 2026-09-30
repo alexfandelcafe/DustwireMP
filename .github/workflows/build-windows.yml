@@ -8,17 +8,31 @@ on:
 
 jobs:
   build:
-    runs-on: windows-2022
+    runs-on: windows-2025-vs2026
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Install CMake 4.4.3
+        shell: pwsh
+        run: |
+          $version = "4.4.3"
+          $zip = "$env:RUNNER_TEMP\cmake.zip"
+          $root = "$env:RUNNER_TEMP\cmake"
+          Invoke-WebRequest `
+            -Uri "https://github.com/Kitware/CMake/releases/download/v$version/cmake-$version-windows-x86_64.zip" `
+            -OutFile $zip
+          Expand-Archive -Path $zip -DestinationPath $root -Force
+          $bin = Join-Path $root "cmake-$version-windows-x86_64\bin"
+          Add-Content -Path $env:GITHUB_PATH -Value $bin
+          & "$bin\cmake.exe" --version
+
       - name: Configure
-        run: cmake -S . -B build -G "Visual Studio 17 2022" -A x64
+        run: cmake -S . -B build-vs2026 -G "Visual Studio 18 2026" -A x64
 
       - name: Build
-        run: cmake --build build --config Debug --parallel
+        run: cmake --build build-vs2026 --config Debug --parallel
 
       - name: Test
-        run: ctest --test-dir build -C Debug --output-on-failure
+        run: ctest --test-dir build-vs2026 -C Debug --output-on-failure
