@@ -17,7 +17,6 @@ struct LauncherConfig {
     std::uint32_t wait_for_game_ms{30000};
 
     bool require_x64{true};
-    bool inspect_only{false};
 
     // Zero/empty means "report only". Non-zero values enable
     // an exact build-profile check.
