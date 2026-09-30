@@ -1,42 +1,92 @@
-# DustwireMP v0.1
+# DustwireMP
 
-DustwireMP is a clean-room multiplayer framework skeleton for Red Dead Redemption 1 modding.
+DustwireMP is a clean-room multiplayer framework for building a Red Dead Redemption 1 multiplayer client/server stack.
 
-This first version focuses on the connection path and project structure rather than game hooking:
+The repository is intentionally layered:
 
-`launcher -> client-main -> CEF UI abstraction -> native bridge -> networking abstraction -> server`
+`launcher -> client-main -> CEF bridge -> client networking -> ENet -> server networking -> server game`
 
-The v0.1 build is self-contained and uses a small WinSock UDP transport so the client and server can actually exchange a HELLO/WELCOME handshake without requiring third-party SDKs. The transport layer is intentionally isolated so ENet can replace it in a later milestone without changing the protocol or UI layers.
+CEF is the UI layer. ENet is the transport layer. The shared protocol sits above ENet and is independent of both the browser and the game engine.
 
-## First-version behavior
+## Current version: v0.2
 
-- Starts a local UDP server on port 4674.
-- Starts a client connection to `127.0.0.1:4674` by default.
-- Sends `HELLO` with protocol version and player name.
-- Server assigns a player ID and returns `WELCOME`.
-- Client reports connection state through the native UI bridge.
-- Includes an HTML/CSS/JS CEF-style UI mock that mirrors the planned browser API.
-- Includes a full roadmap and architecture notes for future chats.
+The v0.2 milestone replaces the v0.1 WinSock handshake transport with ENet while preserving the DustwireMP packet format.
+
+Implemented now:
+
+- ENet client/server transport.
+- Two transport channels:
+  - channel 0: reliable/control traffic.
+  - channel 1: low-latency traffic.
+- HELLO/WELCOME/READY handshake.
+- Server-side player ID allocation with a 32-peer default.
+- ENet disconnect detection.
+- Client ping measurement through PING/PONG.
+- Protocol smoke test.
+- CMake FetchContent dependency pinned to a known upstream ENet commit.
+- Persistent roadmap in `ROADMAP.md`.
+
+## Protocol
+
+Current DustwireMP protocol:
+
+| Opcode | Direction | Purpose |
+|---|---|---|
+| `0x0001` | Client -> Server | HELLO |
+| `0x0002` | Server -> Client | WELCOME |
+| `0x0003` | Client -> Server | READY |
+| `0x0004` | Client -> Server | PING |
+| `0x0005` | Server -> Client | PONG |
+
+The wire format is:
+
+`PacketHeader + opcode payload`
+
+where the header is encoded as:
+
+`u8 version + u16 opcode + u32 sequence`
+
+All integer fields in the shared codec are little-endian.
+
+These are new DustwireMP protocol definitions. They are not claimed to reproduce the original RDRMP wire format.
 
 ## Build
 
-On Windows with Visual Studio 2022 and CMake installed:
+Windows target:
 
 ```bat
 build.bat
 ```
 
-Build logs are written to `logs\\build_*.log` and the batch file stops on the first failing step.
+The build script:
+
+1. Creates `build/` and `logs/`.
+2. Configures Visual Studio 2022 x64.
+3. Lets CMake fetch the pinned ENet dependency.
+4. Builds Debug.
+5. Runs the protocol smoke test.
+6. Stores stdout/stderr in a timestamped log.
+
+The first configuration requires network access to fetch ENet unless the CMake dependency has already been cached locally.
 
 ## Run
 
+Start the server:
+
 ```bat
 run_server.bat
+```
+
+Then start the current console client:
+
+```bat
 run_client.bat
 ```
 
-The current v0.1 client is a console client because the real CEF SDK and RDR1 injection layer are intentionally not bundled yet. The UI API and CEF bridge interfaces are already defined so those pieces can be added without changing the networking protocol.
+The v0.2 client is still a console executable. The CEF bridge and web UI are preparation for the real in-game browser integration planned for v0.7 of the roadmap.
 
-## Important protocol note
+## Development route
 
-The packet IDs and serialization in this repository are **new DustwireMP protocol definitions**. They are not claimed to reproduce the original RDRMP wire format.
+Read `ROADMAP.md` before changing architecture. Each milestone isolates one layer so we can test networking before touching RDR1 memory hooks.
+
+Next major milestone: v0.3 RDR1 launcher/injection and a stable game tick, followed by v0.4 two-player replication.
