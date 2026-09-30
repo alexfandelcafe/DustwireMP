@@ -7,6 +7,7 @@ namespace dustwire::launcher {
 
 struct InjectionResult {
     bool success{false};
+    bool already_loaded{false};
     std::uint32_t remote_exit_code{};
     std::string error;
 };
