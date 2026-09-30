@@ -203,8 +203,7 @@ bool NativeInvoker::ReadTable(
     if (!storage ||
         !Readable(
             storage,
-            sizeof(std::uintptr_t) +
-            sizeof(std::uint32_t))) {
+            sizeof(std::uintptr_t))) {
         if (diagnostics) {
             *diagnostics = "native registration storage unreadable";
         }
@@ -217,20 +216,31 @@ bool NativeInvoker::ReadTable(
     if (!GuardedCopy(
             reinterpret_cast<const void*>(storage),
             &raw_table,
-            sizeof(raw_table)) ||
-        !GuardedCopy(
-            reinterpret_cast<const void*>(
-                storage + sizeof(std::uintptr_t)),
-            &raw_modulator,
-            sizeof(raw_modulator))) {
+            sizeof(raw_table))) {
         if (diagnostics) {
-            *diagnostics = "native registration table read failed";
+            *diagnostics = "native registration table pointer read failed";
         }
         return false;
     }
 
+    // The global points at the registration table object. Its modulator is
+    // stored at table + 0x8, not at the global storage address + 0x8.
     if (!raw_table ||
-        raw_modulator == 0 ||
+        !Readable(
+            raw_table + sizeof(std::uintptr_t),
+            sizeof(raw_modulator)) ||
+        !GuardedCopy(
+            reinterpret_cast<const void*>(
+                raw_table + sizeof(std::uintptr_t)),
+            &raw_modulator,
+            sizeof(raw_modulator))) {
+        if (diagnostics) {
+            *diagnostics = "native registration table modulator read failed";
+        }
+        return false;
+    }
+
+    if (raw_modulator == 0 ||
         raw_modulator > 0x100000u ||
         !Readable(raw_table, 16)) {
         if (diagnostics) {
