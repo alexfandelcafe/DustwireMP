@@ -170,69 +170,46 @@ bool Rdr1GameTickSource::InitializeRdr1() {
 }
 
 void Rdr1GameTickSource::Bootstrap() {
-    while (running_.load(
-               std::memory_order_acquire)) {
+    while (running_.load(std::memory_order_acquire)) {
+        if (!dispatcher_.Attached() && InitializeRdr1()) {
+            recurring_task_ =
+                std::make_shared<std::function<void()>>();
 
-        if (!dispatcher_.Attached()) {
-            if (InitializeRdr1()) {
-                recurring_task_ =
-                    std::make_shared<std::function<void()>>();
+            const auto weak_task =
+                std::weak_ptr<std::function<void()>>(recurring_task_);
 
-                const auto weak_task =
-                    std::weak_ptr<std::function<void()>>(recurring_task_);
+            *recurring_task_ =
+                [this, weak_task]() {
+                    if (!running_.load(std::memory_order_acquire)) {
+                        return;
+                    }
 
-                *recurring_task_ =
-                    [this, weak_task]() {
-                        if (!running_.load(std::memory_order_acquire)) {
-                            return;
+                    if (callback_) {
+                        callback_();
+                    }
+
+                    if (running_.load(std::memory_order_acquire) &&
+                        dispatcher_.Attached()) {
+                        if (const auto task = weak_task.lock()) {
+                            std::string ignored;
+                            dispatcher_.Submit(*task, ignored);
                         }
+                    }
+                };
 
-                        if (callback_) {
-                            callback_();
-                        }
-
-                        if (running_.load(std::memory_order_acquire) &&
-                            dispatcher_.Attached()) {
-
-                            if (const auto task = weak_task.lock()) {
-                                std::string error;
-                                dispatcher_.Submit(*task, error);
-                            }
-                        }
-                    };
-                std::string error;
-                            dispatcher_.Submit(
-                                *recurring,
-                                error);
-                        }
-                    };
-
-                std::string error;
-
-                if (!dispatcher_.Submit(
-                        *recurring,
-                        error)) {
-                    dispatcher_.Detach();
-                    ready_.store(
-                        false,
-                        std::memory_order_release);
-                } else {
-                    ready_.store(
-                        true,
-                        std::memory_order_release);
-                    break;
-                }
+            std::string error;
+            if (!dispatcher_.Submit(*recurring_task_, error)) {
+                recurring_task_.reset();
+                dispatcher_.Detach();
+                ready_.store(false, std::memory_order_release);
+            } else {
+                ready_.store(true, std::memory_order_release);
+                return;
             }
         }
 
         std::this_thread::sleep_for(
             std::chrono::milliseconds(100));
-    }
-
-    while (running_.load(
-               std::memory_order_acquire)) {
-        std::this_thread::sleep_for(
-            std::chrono::milliseconds(50));
     }
 }
 
