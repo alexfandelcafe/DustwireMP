@@ -14,7 +14,7 @@ v0.3 adds the real Windows bootstrap path:
 
 - `DustwireMPLauncher.exe`.
 - `ProcessLocator` for finding or launching `RDR.exe`.
-- `GameBuild` for PE/x64 validation.
+- `GameBuild` for PE/x64 validation and SHA-256 fingerprinting.
 - `Injector` for loading `DustwireMPClientModule.dll` into the target process.
 - `client-main.dll` bootstrap lifecycle.
 - injected-process logging.
@@ -39,27 +39,27 @@ Important: the v0.3 tick source is a temporary worker loop. It is not the final 
 
 Run:
 
-```bat
+~~~bat
 build.bat
-```
+~~~
 
-The local builder uses the `Visual Studio 18 2026` generator and x64 target. CMake added this generator in version 4.2. citeturn662304search1turn662304search2
+The local builder uses the `Visual Studio 18 2026` generator and x64 target. CMake 4.2 or newer is required for this generator.
 
 Build output:
 
-```text
+~~~text
 build-vs2026/bin/Debug/
   DustwireMPLauncher.exe
   DustwireMPClient.exe
   DustwireMPClientModule.dll
   config/launcher.ini
-```
+~~~
 
 Use `run_launcher.bat` for the RDR1 bootstrap.
 
 Use `run_server.bat` and `run_client.bat` for the standalone networking test pair.
 
-The CI job uses GitHub's `windows-2025-vs2026` image and a CMake 4.4.3 download so the generator matches the local VS 18 build. citeturn326047search0turn326047search3turn662304search4
+The CI job uses GitHub's Windows VS 2026 runner image and CMake 4.4.3.
 
 ## Launcher configuration
 
@@ -69,23 +69,57 @@ Edit:
 
 Default:
 
-```ini
+~~~ini
 game_path=RDR.exe
 client_dll=DustwireMPClientModule.dll
 target_process=RDR.exe
 wait_for_game_ms=30000
 require_x64=true
-```
+
+expected_machine=0
+expected_timestamp=0
+expected_image_size=0
+expected_file_size=0
+expected_sha256=
+~~~
 
 Relative paths are resolved from the launcher executable directory.
 
+The exact-profile fields remain empty while discovering the supported game build. Once a real `RDR.exe` is identified, the launcher can enforce the selected fingerprint.
+
+## Exact RDR1 build fingerprint
+
+The launcher records:
+
+- PE machine.
+- PE timestamp.
+- `SizeOfImage`.
+- file size.
+- SHA-256 of the complete `RDR.exe`.
+
+Run the launcher once against the real game installation, then inspect:
+
+~~~text
+logs/launcher.log
+~~~
+
+The relevant line has the form:
+
+~~~text
+PE machine=0x8664 x64=1 timestamp=... image_size=0x... file_size=... sha256=...
+~~~
+
+Copy the observed values into `config/launcher.ini` to enable a strict profile. See `docs/V0.3_BUILD_PROFILE.md` for the workflow.
+
+A strict profile identifies the executable build; it does not by itself validate a game-tick hook.
+
 ## Launcher logs
 
-```text
+~~~text
 logs/launcher.log
 logs/client-main.log
 logs/build_*.log
-```
+~~~
 
 ## Protocol
 
