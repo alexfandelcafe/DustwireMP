@@ -9,6 +9,8 @@
 #include <memory>
 #include <string>
 
+#include "../../shared/logging/Logger.hpp"
+
 namespace dustwire::client {
 
 namespace {
@@ -140,9 +142,14 @@ void Rdr1GameTickSource::Stop() {
 }
 
 bool Rdr1GameTickSource::InitializeRdr1() {
+    auto& logger =
+        dustwire::logging::Logger::Instance();
+
     MainModuleLayout layout{};
 
     if (!ReadMainModuleLayout(layout)) {
+        last_init_error_ =
+            "unable to read RDR1 main module layout";
         return false;
     }
 
@@ -151,6 +158,10 @@ bool Rdr1GameTickSource::InitializeRdr1() {
             layout.image_size,
             layout.text_rva,
             layout.text_size)) {
+
+        last_init_error_ =
+            native_invoker_.LastError();
+
         return false;
     }
 
@@ -159,8 +170,15 @@ bool Rdr1GameTickSource::InitializeRdr1() {
     if (!dispatcher_.Attach(
             native_invoker_,
             error)) {
+
+        last_init_error_ = error;
         return false;
     }
+
+    last_init_error_.clear();
+
+    logger.Info(
+        "RDR1 game-thread dispatcher attached");
 
     ready_.store(
         dispatcher_.Attached(),
@@ -170,6 +188,9 @@ bool Rdr1GameTickSource::InitializeRdr1() {
 }
 
 void Rdr1GameTickSource::Bootstrap() {
+    auto& logger =
+        dustwire::logging::Logger::Instance();
+
     while (running_.load(std::memory_order_acquire)) {
         if (!dispatcher_.Attached() && InitializeRdr1()) {
             recurring_task_ =
@@ -204,12 +225,24 @@ void Rdr1GameTickSource::Bootstrap() {
                 ready_.store(false, std::memory_order_release);
             } else {
                 ready_.store(true, std::memory_order_release);
+                logger.Info(
+                    "RDR1 game tick source armed; waiting for scrThread::Wait");
                 return;
             }
         }
 
+        if (!last_init_error_.empty()) {
+            static std::string last_logged_error;
+            if (last_logged_error != last_init_error_) {
+                logger.Warning(
+                    "RDR1 game-thread initialization pending: " +
+                    last_init_error_);
+                last_logged_error = last_init_error_;
+            }
+        }
+
         std::this_thread::sleep_for(
-            std::chrono::milliseconds(100));
+            std::chrono::milliseconds(250));
     }
 }
 
