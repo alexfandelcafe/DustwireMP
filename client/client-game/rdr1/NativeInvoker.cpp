@@ -363,6 +363,8 @@ bool NativeInvoker::Initialize(
                 continue;
             }
 
+            // FrontierMP treated the sentinel as diagnostic only. It is
+            // not required for accepting the initialized native table.
             const auto sentinel =
                 FindHandlerInTable(
                     table,
@@ -381,11 +383,26 @@ bool NativeInvoker::Initialize(
                     modulator,
                     kGetGameState);
 
-            if (!sentinel ||
-                (!get_position &&
-                 !get_game_state)) {
+            if (!get_position &&
+                !get_game_state) {
                 continue;
             }
+
+            char diagnostics[320]{};
+            std::snprintf(
+                diagnostics,
+                sizeof(diagnostics),
+                "[DustwireRDR1] native table candidate storage=0x%llX "
+                "table=0x%llX mod=%u sentinel=%s getPosition=%s "
+                "getGameState=%s",
+                static_cast<unsigned long long>(storage),
+                static_cast<unsigned long long>(table),
+                modulator,
+                sentinel ? "yes" : "no",
+                get_position ? "yes" : "no",
+                get_game_state ? "yes" : "no");
+            OutputDebugStringA(diagnostics);
+            OutputDebugStringA("\n");
 
             native_registration_storage_ =
                 storage;
@@ -410,7 +427,8 @@ bool NativeInvoker::Initialize(
 
         if (!registration_storage_resolved_) {
             last_error_ =
-                "RDR1 native registration table not ready";
+                "RDR1 native registration table not ready; "
+                "no candidate exposed GET_POSITION or GET_GAME_STATE";
             return false;
         }
     }
