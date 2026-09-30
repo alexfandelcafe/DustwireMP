@@ -1,9 +1,9 @@
 #include "ClientNetwork.hpp"
 
+#include <chrono>
 #include <exception>
 #include <iostream>
 #include <utility>
-#include <vector>
 
 #include "../../shared/protocol/Codec.hpp"
 
@@ -26,7 +26,8 @@ bool ClientNetwork::Connect(
     std::uint16_t port,
     const std::string& player_name) {
 
-    if (state_ != ConnectionState::Offline && state_ != ConnectionState::Error) {
+    if (state_ != ConnectionState::Offline &&
+        state_ != ConnectionState::Error) {
         return false;
     }
 
@@ -49,12 +50,24 @@ bool ClientNetwork::Connect(
 void ClientNetwork::SendHello() {
     Hello hello{kProtocolVersion, "0.2.0", player_name_};
 
-    PacketHeader header{kProtocolVersion, HELLO, ++sequence_};
+    PacketHeader header{
+        kProtocolVersion,
+        HELLO,
+        ++sequence_
+    };
+
     auto bytes = EncodeHeader(header);
     auto payload = EncodeHello(hello);
-    bytes.insert(bytes.end(), payload.begin(), payload.end());
+    bytes.insert(
+        bytes.end(),
+        payload.begin(),
+        payload.end());
 
-    if (!transport_.Send(server_, bytes, net::Delivery::Reliable, 0)) {
+    if (!transport_.Send(
+            server_,
+            bytes,
+            net::Delivery::Reliable,
+            0)) {
         Fail("could not send HELLO");
         return;
     }
@@ -63,8 +76,12 @@ void ClientNetwork::SendHello() {
     state_ = ConnectionState::Handshaking;
 }
 
-void ClientNetwork::HandlePacket(const net::Datagram& datagram) {
-    Reader r(datagram.payload.data(), datagram.payload.size());
+void ClientNetwork::HandlePacket(
+    const net::Datagram& datagram) {
+
+    Reader r(
+        datagram.payload.data(),
+        datagram.payload.size());
 
     PacketHeader h;
     h.version = r.U8();
@@ -76,7 +93,7 @@ void ClientNetwork::HandlePacket(const net::Datagram& datagram) {
         return;
     }
 
-    const std::size_t header_size = 1 + 2 + 4;
+    constexpr std::size_t header_size = 1 + 2 + 4;
 
     if (h.opcode == WELCOME) {
         const auto welcome = DecodeWelcome(
@@ -86,23 +103,42 @@ void ClientNetwork::HandlePacket(const net::Datagram& datagram) {
         player_id_ = welcome.player_id;
         state_ = ConnectionState::Connected;
 
-        std::cout << "Connected to " << welcome.server_name
-                  << " as player " << player_id_ << "\n";
+        std::cout << "Connected to "
+                  << welcome.server_name
+                  << " as player "
+                  << player_id_
+                  << "\n";
 
-        PacketHeader ready{kProtocolVersion, READY, ++sequence_};
-        auto bytes = EncodeHeader(ready);
-        if (!transport_.Send(server_, bytes, net::Delivery::Reliable, 0)) {
+        PacketHeader ready{
+            kProtocolVersion,
+            READY,
+            ++sequence_
+        };
+
+        if (!transport_.Send(
+                server_,
+                EncodeHeader(ready),
+                net::Delivery::Reliable,
+                0)) {
             Fail("could not send READY");
         }
+
         return;
     }
 
     if (h.opcode == PONG) {
         if (h.sequence == ping_sequence_) {
-            ping_ms_ = std::chrono::duration_cast<std::chrono::milliseconds>(
-                std::chrono::steady_clock::now() - ping_started_).count();
-            std::cout << "PONG received: " << ping_ms_ << " ms\n";
+            ping_ms_ =
+                std::chrono::duration_cast<
+                    std::chrono::milliseconds>(
+                    std::chrono::steady_clock::now() -
+                    ping_started_).count();
+
+            std::cout << "PONG received: "
+                      << ping_ms_
+                      << " ms\n";
         }
+
         return;
     }
 }
@@ -117,7 +153,8 @@ void ClientNetwork::Tick() {
     }
 
     if (transport_.WasDisconnected() &&
-        state_ != ConnectionState::Offline) {
+        state_ != ConnectionState::Offline &&
+        state_ != ConnectionState::Disconnecting) {
         Fail("server disconnected the ENet peer");
     }
 
@@ -125,7 +162,9 @@ void ClientNetwork::Tick() {
         try {
             HandlePacket(datagram);
         } catch (const std::exception& e) {
-            Fail(std::string("invalid packet: ") + e.what());
+            Fail(
+                std::string("invalid packet: ") +
+                e.what());
         }
     }
 }
@@ -138,7 +177,12 @@ void ClientNetwork::SendPing() {
     ping_sequence_ = ++sequence_;
     ping_started_ = std::chrono::steady_clock::now();
 
-    PacketHeader header{kProtocolVersion, PING, ping_sequence_};
+    PacketHeader header{
+        kProtocolVersion,
+        PING,
+        ping_sequence_
+    };
+
     if (!transport_.Send(
             server_,
             EncodeHeader(header),
@@ -154,16 +198,22 @@ void ClientNetwork::Disconnect() {
     }
 
     state_ = ConnectionState::Disconnecting;
-    transport_.Stop();
+    transport_.DisconnectPeer();
+    transport_.Poll();
+
     state_ = ConnectionState::Offline;
     player_id_ = 0;
     hello_sent_ = false;
+    ping_ms_ = -1;
 }
 
 void ClientNetwork::Fail(std::string message) {
     last_error_ = std::move(message);
     state_ = ConnectionState::Error;
-    std::cerr << "[ClientNetwork] " << last_error_ << "\n";
+
+    std::cerr << "[ClientNetwork] "
+              << last_error_
+              << "\n";
 }
 
 }
