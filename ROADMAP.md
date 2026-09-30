@@ -30,9 +30,9 @@ Do not mark this complete until the exact target RDR1 executable build is identi
 
 Tasks:
 
-- Capture the current fingerprint from the real target RDR.exe (the historical FrontierMP source already records a candidate build).
-- Decide the supported executable build/profile.
-- Add the exact fingerprint to a strict launcher profile.
+- Capture the current fingerprint from the real target RDR.exe (completed; local probe matched the historical candidate).
+- Decide the supported executable build/profile (completed: RDR1 1.0.42.46611).
+- Add the exact fingerprint to a strict launcher profile (completed; full PE/text/file/SHA-256 profile is enforced).
 - Resolve the game-thread entry using the historical scrThread::Wait dispatcher as a reference, then verify its behavior on the current executable.
 - Add Rdr1GameTickSource.
 - Verify the hook executes at the expected cadence.
