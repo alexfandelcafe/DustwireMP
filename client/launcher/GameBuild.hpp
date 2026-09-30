@@ -12,6 +12,7 @@ struct GameBuildInfo {
     std::uint32_t timestamp{};
     std::uint32_t image_size{};
     std::uint64_t file_size{};
+    std::string sha256;
     std::wstring path;
     std::wstring description;
 };
